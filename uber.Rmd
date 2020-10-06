@@ -1,0 +1,40 @@
+---
+title: "uber analysis"
+author: "Krishnan Raman"
+date: "10/6/2020"
+output: pdf_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library("dplyr")
+
+# CHANGE THIS TO LOCAL DRIVE WHERE uber_nyc_data.csv is located
+# set nrows to 40 million
+setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
+df<-read.csv("uber_nyc_data.csv", nrows=1000*1000*40)
+
+# convert factor vars to formatted numbers
+df$distance = as.double(as.character(df$trip_distance))
+df$duration = as.double(as.difftime(as.character(df$trip_duration), format = "%H:%M:%S", units = "mins"))
+
+# find 1% & 99% quantiles, eliminate anything beyond
+# this helps with cancelled trips, overly long trips & other weird outlier cases
+durq = quantile(df$duration,c(0.01, 0.99), names=F, na.rm=T)
+disq = quantile(df$distance,c(0.01, 0.99), names=F, na.rm=T)
+
+df2 = df[df$duration > durq[1] & df$duration < durq[2] & df$distance > disq[1] & df$distance < disq[2],]
+df2 = select(df2,2:4, 7:8)
+
+# remove NAs & prev dataframes
+final = df2[complete.cases(df2), ]
+rm(df,df2)
+
+# now we are ready! lets look at distance distribution, duration distribution
+hist(final$distance)
+hist(final$duration)
+
+# get summary stats on distance & duration
+summary(final)
+```
