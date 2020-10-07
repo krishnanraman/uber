@@ -30,11 +30,50 @@ df2 = select(df2,2:4, 7:8)
 # remove NAs & prev dataframes
 final = df2[complete.cases(df2), ]
 rm(df,df2)
+```
 
-# now we are ready! lets look at distance distribution, duration distribution
+compute fare based on linear combination of time and distance
+
+```{r}
+
+base_fare = 2.55
+per_minute = 0.35
+per_mile = 1.75
+min_fare = 8
+final$fare <- mapply(function(dis,dur) {
+  max(min_fare, base_fare + per_minute*dur + per_mile*dis)
+}, final$distance, final$duration)
+# distance distribution, duration distribution
 hist(final$distance)
 hist(final$duration)
+hist(final$fare)
 
-# get summary stats on distance & duration
+# get summary stats
 summary(final)
 ```
+log transform for positive variates
+```{r}
+final$logdist = log(1.0+final$distance)
+final$logdur = log(1.0 + final$duration)
+final$logfare = log(final$fare)
+```
+
+gamma priors
+```{r}
+bestgammafit = function(x,title) {
+dist_scale = var(x)/mean(x)
+dist_shape = mean(x)/dist_scale
+plot(density(x), main=title)
+px=seq(0,5,0.05)
+py=dgamma(px,scale=dist_scale, shape=dist_shape)
+lines(px,py, col='red')
+}
+
+bestgammafit(final$logdist, "log distance")
+bestgammafit(final$logdur, "log duration")
+bestgammafit(final$logfare, "log fare")
+```
+Try exp ( Gamma(1)) & Pareto fits as well.
+compute posterior from prior and likelihood
+a-b-c-... circuit for highest fare, least distance
+
