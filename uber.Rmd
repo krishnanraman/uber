@@ -9,6 +9,8 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 library("dplyr")
+library(tidyverse)
+library(lattice)
 
 # CHANGE THIS TO LOCAL DRIVE WHERE uber_nyc_data.csv is located
 # set nrows to 40 million
@@ -76,4 +78,58 @@ bestgammafit(final$logfare, "log fare")
 Try exp ( Gamma(1)) & Pareto fits as well.
 compute posterior from prior and likelihood
 a-b-c-... circuit for highest fare, least distance
+
+```{r}
+# Read in first 1 million rows of data set
+
+uber_orig <- read.csv("C://Users/david/Desktop/uber.csv", nrows = 1000*1000, stringsAsFactors = FALSE)
+uber <- uber_orig
+
+# Create a new variable with just the hour of pickup time
+
+uber$origin_hour <- uber$pickup_datetime %>% str_split (" ") %>% lapply(function(x) x[2]) %>% unlist() %>% 
+  substr(1,2) %>% as.numeric()
+
+# Create another variable with minutes of trip
+
+uber$trip_minutes <-  uber$trip_duration %>% str_split(":") %>% 
+  lapply(function(x) 60*as.numeric(x[1])+as.numeric(x[2]) + round(as.numeric(x[3])/60)) %>% unlist()
+
+# Create new variable with just the day
+
+uber$trip_day <- as.Date(uber$pickup_datetime)
+
+# Filter out some trips with missing data or excessive trip times
+# Only selecting the first two weeks
+
+uber_2weeks <- uber %>% filter(!(trip_minutes <= 0 | is.na(trip_minutes) == TRUE | 
+                            trip_minutes > 100) & trip_day >= "2014-09-01" & trip_day <= "2014-09-15")
+
+# Names of stations 
+
+station_names <- unique(uber$origin_taz)
+
+# Get the number of cars at each location at each hour of the day
+
+loc_times <- uber_2weeks %>% group_by(origin_taz, origin_hour) %>% 
+  summarise(num_cars = n()) %>% as.data.frame()
+
+# Reformat into a matrix with hour of day as rows and location as columns
+
+lt_mat <- matrix(0, 24, length(station_names)-1)
+
+for (i in 1:(ncol(lt_mat))){
+  lt_mat[,i] <- loc_times %>% filter(origin_taz == station_names[i]) %>% 
+    select(num_cars) %>% `$`(num_cars)
+}
+
+# Plot the number of cars by hour at each location
+
+xyplot(num_cars ~ origin_hour | origin_taz, data = loc_times)
+
+# 2A is a very different location so plot just the other locations
+
+loc_times %>% filter(origin_taz != "2A") %>% xyplot(num_cars ~ origin_hour | origin_taz, data = .)
+```
+
 
