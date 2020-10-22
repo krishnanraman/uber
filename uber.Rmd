@@ -141,12 +141,10 @@ for (i in 1:nrow(lt_mat)){
   lt_mat[i,cur_counts$destination_taz] <- cur_counts$n_cars
 }
 
-# Reformat for plotting
-
+# Reformat for plotting (still only plotting everything except 2A)
 
 loc_times <- lt_mat %>% gather(station_names, num_cars)
 loc_times$time <- rep(1:(n_intvls*day_length), times = length(station_names))
-
 loc_times %>% filter(station_names != "2A") %>% 
   xyplot(num_cars ~ time | station_names, data = ., type = 'l')
 ```
