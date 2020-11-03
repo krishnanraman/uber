@@ -1,0 +1,4 @@
+* Fare Modeling - Mixture of Gamma Distributions - via EM ( Lecture 21 )
+* Optimal k-Circuit for small k - Truncated normal priors for each (src,dest) tuple that participate in circuit, MC.
+* Hierarchical Model with STAN - fare from (src,dest) <- f( (src,-dest) + (-src,dest) + c)
+* Pytorch classifier - predict trip duration given (src,dest,timezone)
