@@ -18,14 +18,16 @@ eg. (abca) is a circuit of length 3 since a->b->c->a is a cycle of length 3, wit
 Opimal circuit: Sum of fares over this k-circuit > sum of fares over all such k-circuits.
 (Since we seek to maximize the fare, we discard any tuple with median fare < $50)
 
-It should be clear that participation in a circuit requires every source node to be a destination node as well. eg. In the above circuit (abca), b is a source node for the edge (b,c) and a destination node for the edge (a,b).
+It should be clear that participation in a circuit requires every source node to be a destination node as well. 
+eg. In the above circuit (abca), b is a source node for the edge (b,c) and a destination node for the edge (a,b).
 
 Of the 68 (src,dest) tuples with median fare > $50, 
 there are 24 unique sources, 
 24 unique destinations, 
 21 unique nodes in the intersection. 
 
-Since participation in a circuit requires every source node to be a destination node as well, we focus on the intersection. This reduces the number of tuples from 68 to 52. 
+Since participation in a circuit requires every source node to be a destination node as well, we focus on the intersection. 
+This reduces the number of tuples from 68 to 52. 
 
 To summarize, we now have 52 (src,dest) tuples which can participate in the circuit, where the src & dest nodes belong to a set of 21 unique nodes.
 
