@@ -15,7 +15,7 @@ Of these 840 tuples, we find that only 68 (src,dest) tuples have median fare > $
 Goal: Find an optimal circuit of length k.
 k-Circuit: A k-circuit is a directed k-graph with a cycle i.e with k edges and k nodes such that starting node of each edge is terminal node of another.
 eg. (abca) is a circuit of length 3 since a->b->c->a is a cycle of length 3, with 3 edges (a,b),(b,c) and (c,a).
-Opimal circuit: Sum of fares over this k-circuit > sum of fares over all such k-circuits.
+Opimal circuit: Sum of fares over this k-circuit > sum of fares over all other k-circuits.
 (Since we seek to maximize the fare, we discard any tuple with median fare < $50)
 
 It should be clear that participation in a circuit requires every source node to be a destination node as well. 
