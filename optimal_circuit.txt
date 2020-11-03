@@ -1,0 +1,61 @@
+Data: Thirty million uber trips between some src & some dest in NYC.
+
+Each row looks like: <src, dest, fare>
+We have 29,993,260 such rows.
+
+Step 1. Group by (src,dest)
+We obtain 840 rows.
+Each row looks like: <src,dest,<fare_1,fare_2,.....fare_n>>
+These 840 rows can be replaced by <src,dest,F(median,sigma)> 
+where F is a parametrized fat-tailed fare distribution.
+
+We have thus summarized the gigantic 30 million row dataset as 840 unique <src,dest> tuples, each tuple associated with a fare distribution.
+Of these 840 tuples, we find that only 68 (src,dest) tuples have median fare > $50
+
+Goal: Find an optimal circuit of length k.
+k-Circuit: A k-circuit is a directed k-graph with a cycle i.e with k edges and k nodes such that starting node of each edge is terminal node of another.
+eg. (abca) is a circuit of length 3 since a->b->c->a is a cycle of length 3, with 3 edges (a,b),(b,c) and (c,a).
+Opimal circuit: Sum of fares over this k-circuit > sum of fares over all such k-circuits.
+(Since we seek to maximize the fare, we discard any tuple with median fare < $50)
+
+It should be clear that participation in a circuit requires every source node to be a destination node as well. eg. In the above circuit (abca), b is a source node for the edge (b,c) and a destination node for the edge (a,b).
+
+Of the 68 (src,dest) tuples with median fare > $50, 
+there are 24 unique sources, 
+24 unique destinations, 
+21 unique nodes in the intersection. 
+
+Since participation in a circuit requires every source node to be a destination node as well, we focus on the intersection. This reduces the number of tuples from 68 to 52. 
+
+To summarize, we now have 52 (src,dest) tuples which can participate in the circuit, where the src & dest nodes belong to a set of 21 unique nodes.
+
+Suppose we seek an optimal 6-circuit. In this case, our Uber driver starts at some node a, visits five other nodes & returns to a.
+The circuit looks like a->b->c->d->e->f->a. It has 6 nodes, 6 edges.
+Finding a 6-circuit: Since we have 21 unique nodes, the brute-force approach requires enumerating 21*20*19*18*17*16*1 = 39 million circuits.
+Clearly this approach is infeasible as we seek larger circuits, eg. a 10-circuit requires inspecting 1.2 trillion circuits.
+
+A Bayesian approach
+====================
+Data: 52 rows, given by
+s1,d1,N(mu1,sigmasq1)
+s2,d2,N(mu2,sigmasq2)
+...
+s52,d52,N(mu52,sigmasq52)
+
+where the 52 prior distributions are such that mu >> sigma  (typically mu = 50 dollars, sigma = 1 dollar)
+
+Algo: To construct optimal circuit of length k.
+i. Pick a row at random, say <a,b, N(mu_a,sigmasq_a)>
+This corresponds to a trip originating at a, terminating at b, making a median fare of mu_a.
+
+ii. Pick a row which starts at previous destination, say <b, c, N(mu_b,sigmasq_b)
+iii. Pick a row which starts at previous destination, say <c, d, N(mu_c,sigmasq_c)
+...
+i.e. repeat step ii (k-1) times. 
+(If a circuit of length k cannot be formed at any stage, abandon & return to step i)
+
+The total fare for this k-circuit can be estimated by drawing a sample from N(mu_a+mu_b+....mu_k, sigmasq_a+sigmasq_b+...sigmasq_k)
+
+Repeat above for a million iterations. 
+Thus for every circuit, we have a set of samples.
+The circuit with highest sample mean is the desired optimal k-circuit.
