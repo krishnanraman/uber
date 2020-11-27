@@ -214,6 +214,7 @@ lat_long <- cbind(runif(nloc, 35, 45),
 tt <- seq(0, 24-24/ntime, length = ntime)
 tt <- tt-mean(tt)
 ind <- seq(1, length(tt), by = 2)
+ind_all <- c(ind, ind+ntime, ind+2*ntime)
 tt_sub <- tt[ind]
 
 l2_time <- 0.5
@@ -240,7 +241,7 @@ ts.plot(f)
 fmat <- matrix(f, nrow = ntime, ncol = nloc, byrow = FALSE)
 ts.plot(fmat, col = 2:(nloc+1))
 
-Y <- f[c(ind, ind+ntime, ind+2*ntime)] + rnorm(Nsub, 0, sqrt(sig2))
+Y <- f[ind_all] + rnorm(Nsub, 0, sqrt(sig2))
 
 Ymat <- matrix(Y, nrow = ntime_sub, ncol = nloc, byrow = FALSE)
 ts.plot(Ymat, col = 2:(nloc+1))
@@ -295,6 +296,33 @@ for (i in 2:niter){
                                 sig2_time_b + 0.5*t(fsave[i,])%*%sig2_time_Sigma%*%fsave[i,])
 }
 
+f_pred <- matrix(0, niter, nloc*(ntime-ntime_sub))
+In_sub <- diag(ntime_sub*nloc)
 
+for (i in 1:niter){
+  K <- kronecker(sig2_space_save[i]*K_space_true, sig2_time_save[i]*K_time_true)
+  Kf <- K[ind_all, ind_all]
+  Kfpred <- K[-ind_all, ind_all]
+  Kpred <- K[-ind_all, -ind_all]
+
+  YSig_inv <- solve(sig2_save[i]*In_sub + Kf, In_sub)
+  Kpred_Sigma <- Kpred - Kfpred%*%YSig_inv%*%t(Kfpred)
+  Kpred_Mu <- Kfpred%*%YSig_inv%*%Y
+  
+  f_pred[i,] <- rmvnorm(1, Kpred_Mu, Kpred_Sigma)
+}
+
+f_pred_all <- rep(0, N)
+f_pred_all[ind_all] <- colMeans(fsave)
+f_pred_all[-ind_all] <- colMeans(f_pred)
+
+plot(tt, f_pred_all[1:200], type = 'l')
+lines(tt, f[1:200], col = 'red')
+
+plot(tt, f_pred_all[201:400], type = 'l')
+lines(tt, f[201:400], col = 'red')
+
+plot(tt, f_pred_all[401:600], type = 'l')
+lines(tt, f[401:600], col = 'red')
 ```
 
