@@ -2,3 +2,51 @@
 * Optimal k-Circuit for small k - Truncated normal priors for each (src,dest) tuple that participate in circuit, MC.
 * Hierarchical Model with STAN - fare from (src,dest) <- f( (src,-dest) + (-src,dest) + c)
 * Pytorch classifier - predict trip duration given (src,dest,timezone)
+
+--------
+ Data: 30 million uber trips between src & dest.
+src (or dest): 30 unique locations in nyc (denoted by labels such as 1A, 2C etc).
+
+An edge: is a (src,dest) pair with src != dest. 30*29 = 870 possible edges.
+Each edge has a fare distribution with roughly 30 milllion/870 = 34,000 samples.
+For each edge, find the median fare.
+Ignore edges with median fare < $50
+
+This leaves us with 52 edges (out of 870)
+
+Step1.
+Goal: Edge posterior.
+Estimands of interest: parameters of edge posterior.
+=======================
+Model each of the 52 edges with a prior distribution: truncated Normal, with prior mean 50, prior left bound 40, prior right bound 60, prior variance 25.
+Obtain likelihood of truncated normal, using sample mean & sample stdev.
+Find posterior given likelihood & prior above.
+
+Step 2.
+Goal: Circuit posterior
+Estimands of interest: parameters of circuit posterior.
+========================
+Recipe to construct a k-circuit, say k = 3.
+A 3 circuit has 3 edges, ab, bc & ca.
+Given 52 edges, there are 52*51*1 ,about 2600 circuits.
+Circuit prior: Each circuit has a prior distribution given by Normal( 3*50 = 150, 25/3 = 8)
+Obtain 1 sample each from the posterior distributions of the 3 edges in the circuit.
+Sum up the 3 samples => we now have 1 sample for circuit fare.
+Get n samples. Compute circuit likelihood with these n samples.
+Given circuit likelihood & circuit prior, we get circuit posterior.
+
+Step 3.
+Goal: Optimal k-circuit
+Estimand of interest: expected maximum fare for a circuit.
+=======================
+Pick k-circuit with highest posterior mode.
+Find credible interval for estimand.
+
+Step 4. Posterior predictive check
+==========================
+Say circuit abca is the winner.
+We have real data for ab, bc & ca.
+For each day, obtain the true circuit fare if a driver drove ab, bc & ca.
+Compare true circuit fare with step 3 results.
+
+---------
