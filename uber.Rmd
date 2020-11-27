@@ -80,20 +80,22 @@ compute posterior from prior and likelihood
 a-b-c-... circuit for highest fare, least distance
 
 ```{r}
+# Read in first 1 million rows of data set
+
+uber_orig <- read.csv("C://Users/david/Documents/R/Stat 695/Project/uber/uber.csv", 
+                      nrows = 1000*1000, stringsAsFactors = FALSE)
+uber <- uber_orig
+
 # Number of intervals per hour for the time points
 
-n_intvls <- 10
+n_intvls <- 4
 day_length <- 24
 hour_length <- 60
 
-# Read in first 1 million rows of data set
-
-uber_orig <- read.csv("C://Users/david/Desktop/uber.csv", nrows = 1000*1000, stringsAsFactors = FALSE)
-uber <- uber_orig
-
 # Create a new variable with just the hour of pickup time
 
-uber$origin_hour <- uber$pickup_datetime %>% str_split (" ") %>% lapply(function(x) x[2]) %>% unlist() %>% 
+uber$origin_hour <- uber$pickup_datetime %>% str_split (" ") %>% 
+  lapply(function(x) x[2]) %>% unlist() %>% 
   substr(1,2) %>% as.numeric()
 
 # Create another variable with minutes of trip

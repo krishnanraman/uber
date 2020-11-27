@@ -59,9 +59,18 @@ $\text{min}\Bigg\{1, \frac{p(f(\boldsymbol{t})|(l^2)^*)p((l^2)^*)}{p(f(\boldsymb
 
 The code for this Gibbs-Sampling scheme with the Metropolis step for $l^2$ is below.
 
+# Temporal Gaussian Process
+
 ```{r}
 library(mvtnorm)
 library(GauPro)
+
+# Function to compute the squared exponential covariance function for given time points
+
+kern <- function(tt, l2){
+  D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
+  exp(-1/(2*l2)*D)
+}
 
 # Create time series vector of length 200
 
@@ -78,9 +87,9 @@ In_pert <- diag(0.0001, n)
 
 # True variance and range parameters
 
-sig2 <- 0.4
-tau2 <- 0.5
-l2 <- 3
+sig2 <- 0.5
+tau2 <- 1
+l2 <- 1.47
 
 # Our observed data will be a subset of 100 observations from the true process
 
@@ -91,7 +100,7 @@ ind <- sort(sample(1:n, n_sub))
 tt_sub <- tt[ind]
 tt_pred <- tt[-ind]
 
-# Observed data is a sine wave function plus normal noise
+# Observed data is a periodic wave function plus normal noise
 
 Y <- sin(tt_sub) + rnorm(n_sub, 0, sqrt(sig2))
 
@@ -110,13 +119,11 @@ f_save <- matrix(0, niter, n_sub)
 fpred_save <- matrix(0, niter, n-n_sub)
 sig2_save <- rep(0, niter)
 tau2_save <- rep(0, niter)
-l2_save <- rep(0, niter)
 
 # Initial values
 
 sig2_save[1] <- sig2
 tau2_save[1] <- tau2
-l2_save[1] <- l2
 
 # Values for hyperparameters
 
@@ -124,21 +131,11 @@ sig2_a <- 2
 sig2_b <- 2
 tau2_a <- 2
 tau2_b <- 2
-l2_a <- 2
-l2_b <- 2
-l2_sd <- 0.5
-
-# Function to compute the squared exponential covariance function for given time points
-
-kern <- function(tt, l2){
-  D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
-  exp(-1/(2*l2)*D)
-}
 
 # MCMC Sampler
 
 for (i in 2:niter){
-  K <- tau2_save[i-1]*kern(tt, l2) + diag(0.0001, n)
+  K <- tau2_save[i-1]*kern(tt, l2) + diag(10e-06, n)
   Kf <- K[ind, ind]
   Kfpred <- K[-ind, ind]
   Kpred <- K[-ind, -ind]
@@ -154,23 +151,10 @@ for (i in 2:niter){
   f_save[i,] <- rmvnorm(1, Kf_Mu, Kf_Sigma)
   fpred_save[i,] <- rmvnorm(1, Kpred_Mu, Kpred_Sigma)
 
-  sig2_save[i] <- 1/rgamma(1, n_sub/2 + sig2_a, sig2_b + 0.5*t(Y-f_save[i,])%*%(Y-f_save[i,]))
-  tau2_save[i] <- 1/rgamma(1, n_sub/2 + tau2_a, tau2_b + 0.5*t(f_save[i,])%*%solve(K[ind,ind], f_save[i,]))
-
-  l2_prop <- rnorm(1, l2_save[i-1], l2_sd)
-  KSigma_prop <- tau2_save[i]*kern(tt_sub, l2_prop) + diag(0.0001, n_sub)
-  KSigma_cur <- tau2_save[i]*kern(tt_sub, l2_save[i-1]) + diag(0.0001, n_sub)
-
-  l2_acc_prob <- dmvnorm(f_save[i,], rep(0, n_sub), KSigma_prop, log = TRUE) +
-    dgamma(l2_prop, l2_a, l2_b, log = TRUE) -
-    dmvnorm(f_save[i,], rep(0, n_sub), KSigma_cur, log = TRUE) -
-    dgamma(l2_save[i-1], l2_a, l2_b, log = TRUE)
-
-  if (log(runif(1)) < l2_acc_prob){
-    l2_save[i] <- l2_prop
-  } else {
-    l2_save[i] <- l2_save[i-1]
-  }
+  sig2_save[i] <- 1/rgamma(1, n_sub/2 + sig2_a, 
+                           sig2_b + 0.5*t(Y-f_save[i,])%*%(Y-f_save[i,]))
+  tau2_save[i] <- 1/rgamma(1, n_sub/2 + tau2_a, 
+                           tau2_b + 0.5*t(f_save[i,])%*%solve(K[ind,ind], f_save[i,]))
 }
 
 burn <- 100
@@ -195,5 +179,122 @@ lines(tt, gaupro_preds, col = "green")
 
 legend("topright", c("True", "Our Fit", "GauPro Fit"),
        col = c("blue", "red", "green"), lwd = c(2,2,2))
+```
+
+# Spatio-Temporal Gaussian Process
+
+```{r}
+set.seed(2)
+
+space.kern <- function(D, l2){
+  exp(-1/(2*l2)*D)
+}
+
+space.D <- function(lat_long){
+  D <- as.matrix(dist(lat_long, diag = TRUE, upper = TRUE))^2
+}
+
+time.kern <- function(D, l2){
+  exp(-1/(2*l2)*D)
+}
+
+time.D <- function(tt){
+  D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
+}
+
+nloc <- 3
+ntime <- 200
+ntime_sub <- 100
+N <- ntime*nloc
+Nsub <- ntime_sub*nloc
+
+lat_long <- cbind(runif(nloc, 35, 45),
+                  runif(nloc, 65, 75))
+
+tt <- seq(0, 24-24/ntime, length = ntime)
+tt <- tt-mean(tt)
+ind <- seq(1, length(tt), by = 2)
+tt_sub <- tt[ind]
+
+l2_time <- 0.5
+l2_space <- 10
+
+sig2_time <- 4
+sig2_space <- 2
+sig2 <- 0.5
+
+D_time <- time.D(tt)
+D_space <- space.D(lat_long)
+
+K_time_true <- sig2_time*time.kern(D_time, l2_time) + diag(10e-6, ntime)
+K_space_true <- sig2_space*space.kern(D_space, l2_space) + diag(10e-6, nloc)
+
+f_time <- t(rmvnorm(1, rep(0, ntime), K_time_true))
+ts.plot(f_time)
+
+K <- kronecker(K_space_true, K_time_true)
+
+f <- t(rmvnorm(1, rep(0, N), K))
+ts.plot(f)
+
+fmat <- matrix(f, nrow = ntime, ncol = nloc, byrow = FALSE)
+ts.plot(fmat, col = 2:(nloc+1))
+
+Y <- f[c(ind, ind+ntime, ind+2*ntime)] + rnorm(Nsub, 0, sqrt(sig2))
+
+Ymat <- matrix(Y, nrow = ntime_sub, ncol = nloc, byrow = FALSE)
+ts.plot(Ymat, col = 2:(nloc+1))
+
+niter <- 1000
+
+fsave <- matrix(0, niter, Nsub)
+sig2_save <- rep(0, niter)
+sig2_time_save <- rep(0, niter)
+sig2_space_save <- rep(0, niter)
+
+sig2_save[1] <- 2
+sig2_time_save[1] <- 2
+sig2_space_save[1] <- 2
+
+sig2_a <- 2
+sig2_b <- 2
+sig2_time_a <- 2
+sig2_time_b <- 2
+sig2_space_a <- 2
+sig2_space_b <- 2
+
+D_space <- space.D(lat_long)
+D_time <- time.D(tt_sub)
+K_space <- space.kern(D_space, l2_space)
+K_time <- time.kern(D_time, l2_time) + diag(10e-02, ntime_sub)
+K_space_inv <- solve(K_space)
+K_time_inv <- solve(K_time)
+
+for (i in 2:niter){
+  K_space_time <- kronecker(sig2_space_save[i-1]*K_space,
+                       sig2_time_save[i-1]*K_time)
+  sig2I <- diag(sig2_save[i-1], Nsub)
+  f_Sigma <- K_space_time + sig2I
+  
+  f_post_Mu <- K_space_time%*%solve(f_Sigma, Y)
+  f_post_Sigma <- K_space_time - K_space_time%*%solve(f_Sigma, K_space_time)
+  
+  fsave[i,] <- rmvnorm(1, f_post_Mu, f_post_Sigma)
+  
+  sig2_save[i] <- 1/rgamma(1, sig2_a + Nsub/2, 
+                           sig2_b + 0.5*t(Y-fsave[i,])%*%(Y-fsave[i,]))
+  
+  sig2_space_Sigma <- kronecker(K_space_inv, 1/sig2_time_save[i-1]*K_time_inv)
+  
+  sig2_space_save[i] <- 1/rgamma(1, sig2_space_a + Nsub/2, 
+                              sig2_space_b + 0.5*t(fsave[i,])%*%sig2_space_Sigma%*%fsave[i,])
+  
+  sig2_time_Sigma <- kronecker(1/sig2_space_save[i]*K_space_inv, K_time_inv)
+  
+  sig2_time_save[i] <- 1/rgamma(1, sig2_time_a + Nsub/2, 
+                                sig2_time_b + 0.5*t(fsave[i,])%*%sig2_time_Sigma%*%fsave[i,])
+}
+
+
 ```
 
