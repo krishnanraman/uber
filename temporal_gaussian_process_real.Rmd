@@ -1,0 +1,121 @@
+---
+title: "Temporal Gaussian Process Real"
+author: "David Arthur"
+date: "November 30, 2020"
+output: pdf_document
+---
+
+```{r}
+library(mvtnorm)
+set.seed(1)
+
+kern <- function(tt, l2){
+  D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
+  exp(-1/(2*l2)*D)
+}
+
+gau.pro.temp <- function(data, niter, f1_l2 = 365, f2_l2 = 30, f3_l2 = 1, 
+                         prior_a = 2, prior_b = 2, var_init = 2){
+  tt <- data[,1]
+  Y <- data[,2]
+  n <- length(Y)
+  In <- diag(n)
+  In_pert <- diag(10e-06, n)
+  
+  Ymean <- mean(Y)
+  Ysd <- sd(Y)
+  
+  Y <- (Y-Ymean)/Ysd
+  
+  sig2a <- prior_a
+  sig2b <- prior_b
+  tau21a <- prior_a
+  tau21b <- prior_b
+  tau22a <- prior_a
+  tau22b <- prior_b
+  tau23a <- prior_a
+  tau23b <- prior_b
+  
+  f1_save <- matrix(0, niter, n)
+  f2_save <- matrix(0, niter, n)
+  f3_save <- matrix(0, niter, n)
+  sig2_save <- rep(0, niter)
+  tau21_save <- rep(0, niter)
+  tau22_save <- rep(0, niter)
+  tau23_save <- rep(0, niter)
+  
+  sig2_save[1] <- var_init
+  tau21_save[1] <- var_init
+  tau22_save[1] <- var_init
+  tau23_save[1] <- var_init
+  
+  for (i in 2:niter){
+    K1 <- tau21_save[i-1]*kern(tt, f1_l2) + In_pert
+    K2 <- tau22_save[i-1]*kern(tt, f2_l2) + In_pert
+    K3 <- tau23_save[i-1]*kern(tt, f3_l2) + In_pert
+  
+    YSig_inv <- solve(sig2_save[i-1]*In + K1 + K2 + K3, In)
+  
+    K1_Sigma <- K1 - K1%*%YSig_inv%*%t(K1)
+    K1_Mu <- K1%*%YSig_inv%*%Y
+
+    f1_save[i,] <- rmvnorm(1, K1_Mu, K1_Sigma)
+    
+    K2_Sigma <- K2 - K2%*%YSig_inv%*%t(K2)
+    K2_Mu <- K2%*%YSig_inv%*%Y
+    
+    f2_save[i,] <- rmvnorm(1, K2_Mu, K2_Sigma)
+    
+    K3_Sigma <- K3 - K3%*%YSig_inv%*%t(K3)
+    K3_Mu <- K3%*%YSig_inv%*%Y
+    
+    f3_save[i,] <- rmvnorm(1, K3_Mu, K3_Sigma)
+
+    sig2_save[i] <- 1/rgamma(1, n/2 + sig2a, 
+                             sig2b + 0.5*t(Y-f1_save[i,]-
+                                             f2_save[i,]-
+                                             f3_save[i,])%*%(Y-f1_save[i,]-
+                                                               f2_save[i,]-
+                                                               f3_save[i,]))
+    
+    tau21_save[i] <- 1/rgamma(1, n/2 + tau21a, 
+                             tau21b + 0.5*t(f1_save[i,])%*%solve(K1, f1_save[i,]))
+    tau22_save[i] <- 1/rgamma(1, n/2 + tau22a, 
+                             tau22b + 0.5*t(f2_save[i,])%*%solve(K2, f2_save[i,]))
+    tau23_save[i] <- 1/rgamma(1, n/2 + tau23a, 
+                             tau23b + 0.5*t(f3_save[i,])%*%solve(K3, f3_save[i,]))
+  }
+  
+  cbind(f1_save, f2_save, f3_save, sig2_save, tau21_save, tau22_save, tau23_save)
+}
+
+load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/trip_counts.RData")
+
+trip_data <- cbind(0:(nrow(trip_counts)-1), trip_counts$n_trips)
+num_days <- nrow(trip_data)
+
+gaupro_out <- gau.pro.temp(trip_data, niter = 50, f1_l2 = 365, f2_l2 = 30, f3_l2 = 1)
+
+f1_out <- gaupro_out[,1:num_days]
+f2_out <- gaupro_out[,(num_days+1):(num_days*2)]
+f3_out <- gaupro_out[,(num_days*2+1):(num_days*3)]
+
+f_pred <- colMeans(f1_out) + colMeans(f2_out) + colMeans(f3_out)
+
+par(mfrow = c(1, 1))
+plot(trip_counts, type = 'l', main = "Number of Daily Trips 9/2014 - 8/2015",
+     xlab = "Day", ylab = "Number of Trips")
+lines(trip_counts$date, f_pred*sd(trip_counts$n_trips) + mean(trip_counts$n_trips), 
+      col = 'red')
+```
+
+```{r, fig.height = 15}
+par(mfrow = c(3, 1))
+plot(trip_counts$date, colMeans(f1_out), type = 'l',
+     main = "Long Term Trend", xlab = "Day", ylab = "Scaled Response")
+plot(trip_counts$date[1:30], colMeans(f2_out)[1:30], type = 'l',
+     main = "Medium Term Trend", xlab = "Day", ylab = "Scaled Response")
+plot(trip_counts$date[1:7], colMeans(f3_out)[1:7], type = 'l',
+     main = "Short Term Trend", xlab = "Day", ylab = "Scaled Response")
+```
+
