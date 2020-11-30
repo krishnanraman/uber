@@ -100,13 +100,10 @@ f_pred <- colMeans(exp(f_out*sd(log(trip_data$n_trips+1)) + mean(log(trip_data$n
 f_pred_mat <- matrix(f_pred, nrow = 24, ncol = 25, byrow = FALSE)
 trip_mat <- matrix(trip_data$n_trips, nrow = 24, ncol = 25, byrow = FALSE)
 
-ts.plot(trip_mat[,1])
-lines(f_pred_mat[,1], col = 'red')
-
 for (i in 1:25){
   plot(0:23, trip_mat[,i], main = paste("Number of Hourly Trips (with Predictions) for Location", i),
           xlab = "Hour", ylab = "Number of Trips")
-  lines(f_pred_mat[,i], col = "red")
+  lines(0:23, f_pred_mat[,i], col = "red")
 }
 ```
 

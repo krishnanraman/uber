@@ -94,7 +94,7 @@ load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/trip_counts.RData
 trip_data <- cbind(0:(nrow(trip_counts)-1), trip_counts$n_trips)
 num_days <- nrow(trip_data)
 
-gaupro_out <- gau.pro.temp(trip_data, niter = 50, f1_l2 = 365, f2_l2 = 30, f3_l2 = 1)
+gaupro_out <- gau.pro.temp(trip_data, niter = 1000, f1_l2 = 365, f2_l2 = 30, f3_l2 = 1)
 
 f1_out <- gaupro_out[,1:num_days]
 f2_out <- gaupro_out[,(num_days+1):(num_days*2)]
