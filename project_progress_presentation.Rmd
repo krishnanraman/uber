@@ -1,0 +1,114 @@
+---
+title: "Project Progress Presentation"
+author: "David Arthur, Krishnan Raman"
+date: "December 3, 2020"
+output: 
+  ioslides_presentation:
+    incremental: true
+---
+
+## Introduction
+
+- Uber is a ridesharing service that services millions of customers each day
+- Data were collected on individual rides from September 2014 to August 2015
+- Drivers want to know how to make the most money
+
+## Questions
+
+We are interested in answering the following questions:
+
+- What are the times in the year when the most money can be made?
+- What are the times of day when the most money can be made?
+- Which locations are the busiest?
+
+## The Gaussian Process
+
+$$Y(t) = f(t) + \epsilon(t) \ \text{where} \ \epsilon(t) \sim \mathcal{N}(0, \sigma^2)$$
+
+$$\boldsymbol{Y} | \boldsymbol{f} \sim \mathcal{N}(\boldsymbol{f}, \sigma^2 I)$$
+
+$$\boldsymbol{f} \sim \mathcal{N}(\boldsymbol{0}, K_f) \ \text{where} \ K_f(t, t') = \tau^2 k(t, t')$$
+
+\
+
+$$\begin{bmatrix}
+\boldsymbol{Y} \\
+\boldsymbol{f} 
+\end{bmatrix}
+\sim
+\mathcal{N}
+\Bigg(
+\begin{bmatrix}
+\boldsymbol{0} \\
+\boldsymbol{0}
+\end{bmatrix}
+,
+\begin{bmatrix}
+\sigma^2 I + K_f & K_f \\
+K_f & K_f
+\end{bmatrix}\Bigg)$$
+
+$$\boldsymbol{f} | \boldsymbol{Y} \sim \mathcal{N}(K_f (\sigma^2 I + K_f)^{-1} \boldsymbol{Y}, K_f - K_f(\sigma^2 I + K_f)^{-1}K_f)$$
+
+## Daily Trip Counts with Gaussian Process
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\daily_trips.jpg" width=450 height=250>
+</div>
+
+$$Y(t) = f_{long}(t) + f_{medium}(t) + f_{short}(t) + \epsilon(t)$$
+
+$$f_{*}(t) \sim \mathcal{N}(\boldsymbol{0}, K_*(t,t'))$$
+
+$$K_*(t,t') = \tau^2_* \text{exp}\Bigg(-\frac{1}{2 l^2_*} |t-t'|^2\Bigg)$$
+
+## Estimates of Temporal Trends
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\trends.jpg" width=550 height=450>
+</div>
+
+## Spatio-Temporal Gaussian Process
+
+$$Y(s,t) = f(s,t) + \epsilon(s, t)$$
+
+$$\boldsymbol{Y} | \boldsymbol{f} \sim \mathcal{N}(\boldsymbol{f}, \sigma^2 I)$$
+
+$$\boldsymbol{f} \sim \mathcal{N}(\boldsymbol{0}, K_S \otimes K_T)$$ 
+
+$$K_S(s,s') = \tau^2_S \text{exp}\Bigg(-\frac{1}{2 l^2_S} ||s-s'||^2_2\Bigg)$$ 
+
+$$K_T(t,t')  = \tau^2_T  \text{exp}\Bigg(-\frac{1}{2 l^2_S} |t-t'|^2\Bigg)$$
+
+## Spatio-Temporal Gaussian Process
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\new_york.jpg" width=525 height=425>
+</div>
+
+## Spatio-Temporal Gaussian Process
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\three_boroughs.jpg" width=800 height=425>
+</div>
+
+## Estimates of Temporal Trends
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\three_boroughs_2.jpg" width=800 height=425>
+</div>
+
+## Visualization of Spatial Trends
+
+<div align="center">
+<img src="C:\Users\david\Documents\R\Stat 695\Project\uber\spatio_temporal.gif" width=500 height=500>
+</div>
+
+## Current Issues and Future Plans
+
+- Issue: Currently fixing length-scale parameters to reasonable values
+- Possible Solution: Could estimate them
+- Issue: Current covariance functions might not accurately represent underlying processes
+- Possible Solution: Could consider other covariance functions
+- Issue: High autocorrelation for some variance parameters
+- Possible Solution: Try implementation in STAN

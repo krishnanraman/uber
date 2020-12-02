@@ -7,6 +7,10 @@ output: pdf_document
 
 ```{r}
 library(mvtnorm)
+library(coda)
+library(ggmap)
+library(ggplot2)
+library(tidyverse)
 
 space.kern <- function(D, l2){
   exp(-1/(2*l2)*D)
@@ -91,8 +95,23 @@ gau.pro.spat.temp <- function(data, niter, l2_space = 0.005, l2_time = 10,
 }
 
 load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/trip_data.RData")
+niter <- 500
 
-gaupro_out <- gau.pro.spat.temp(trip_data, niter = 100)
+# gaupro_out1 <- gau.pro.spat.temp(trip_data, niter = niter, var_init = 100)
+# gaupro_out2 <- gau.pro.spat.temp(trip_data, niter = niter, var_init = 10)
+# gaupro_out3 <- gau.pro.spat.temp(trip_data, niter = niter, var_init = 0.01)
+# 
+# save(gaupro_out1, file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out1.RData")
+# save(gaupro_out2, file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out2.RData")
+# save(gaupro_out3, file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out3.RData")
+
+load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out1.RData")
+load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out2.RData")
+load(file = "C://Users/david/Documents/R/Stat 695/Project/uber/st_gaupro_out3.RData")
+
+gaupro_out <- rbind(gaupro_out1[100:niter,],
+                   gaupro_out2[100:niter,],
+                   gaupro_out3[100:niter,])
 
 f_out <- gaupro_out[,1:600]
 f_pred <- colMeans(exp(f_out*sd(log(trip_data$n_trips+1)) + mean(log(trip_data$n_trips+1))))
@@ -101,9 +120,58 @@ f_pred_mat <- matrix(f_pred, nrow = 24, ncol = 25, byrow = FALSE)
 trip_mat <- matrix(trip_data$n_trips, nrow = 24, ncol = 25, byrow = FALSE)
 
 for (i in 1:25){
-  plot(0:23, trip_mat[,i], main = paste("Number of Hourly Trips (with Predictions) for Location", i),
-          xlab = "Hour", ylab = "Number of Trips")
+  plot(0:23, trip_mat[,i], 
+       main = paste("Number of Hourly Trips (with Predictions) for Location", i),
+       xlab = "Hour", ylab = "Number of Trips")
   lines(0:23, f_pred_mat[,i], col = "red")
 }
+
+loc_ind <- c(1, 3, 21)
+par(mfrow = c(1, 3))
+ts.plot(trip_mat[,1], main = "Number of Hourly Trips (Bronx)",
+        ylab = "Number of Trips", xlab = "Hour")
+ts.plot(trip_mat[,3], main = "Number of Hourly Trips (Queens)",
+        ylab = "Number of Trips", xlab = "Hour")
+ts.plot(trip_mat[,21], main = "Number of Hourly Trips (Long Branch)",
+        ylab = "Number of Trips", xlab = "Hour")
+
+par(mfrow = c(1, 3))
+ts.plot(f_pred_mat[,1], main = "Predicted Hourly Trips (Bronx)",
+        ylab = "Number of Trips", xlab = "Hour")
+ts.plot(f_pred_mat[,3], main = "Predicted Hourly Trips (Queens)",
+        ylab = "Number of Trips", xlab = "Hour")
+ts.plot(f_pred_mat[,21], main = "Predicted Hourly Trips (Long Branch)",
+        ylab = "Number of Trips", xlab = "Hour")
+
+sept_data <- read.csv("C://Users/david/Documents/R/Stat 695/Project/uber/sep_2014.csv",
+                      header = TRUE)
+sept_data_red <- sept_data[sample(1:nrow(sept_data), 10000),]
+trip_data_red <- trip_data %>% filter(cluster %in% loc_ind)
+  
+nyc_map <- get_map(location = c(lon = -74.00, lat = 40.71), maptype = "terrain", zoom = 10)
+
+ggmap(nyc_map) + geom_point(data = sept_data_red, aes(x = Lon, y = Lat), alpha = 0.1) + 
+  geom_point(data = trip_data_red, aes(x = long, y = lat), 
+             colour = "red", shape = 24, size = 8, fill = "red")
+
+spat_data <- data.frame(Count = f_pred, lat = trip_data$lat, long = trip_data$long)
+
+saveGIF(
+{
+  for (i in 1:24){
+    spat_data_red <- spat_data[seq(i, 600, by = 24),]
+    plot <- ggmap(nyc_map) + geom_point(data = spat_data_red, 
+                                        aes(x = long, y = lat, size = Count),
+                                        colour = "salmon") +
+      ggtitle(label = paste("Hour", i)) + theme(legend.position = "none")
+    print(plot)
+  }
+},
+movie.name = "spatio_temporal.gif", 
+interval = 0.8, 
+ani.width = 600, 
+ani.height = 600,
+outdir = getwd()
+)
 ```
 
