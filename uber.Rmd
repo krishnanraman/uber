@@ -8,10 +8,14 @@ output: pdf_document
 ```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
-library("dplyr")
-library(tidyverse)
-library(lattice)
+library(dplyr)
+library(igraph)
+```
 
+
+
+
+```{r}
 # CHANGE THIS TO LOCAL DRIVE WHERE uber_nyc_data.csv is located
 # set nrows to 40 million
 setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
@@ -26,7 +30,7 @@ df$duration = as.double(as.difftime(as.character(df$trip_duration), format = "%H
 durq = quantile(df$duration,c(0.01, 0.99), names=F, na.rm=T)
 disq = quantile(df$distance,c(0.01, 0.99), names=F, na.rm=T)
 
-df2 = df[df$duration > durq[1] & df$duration < durq[2] & df$distance > disq[1] & df$distance < disq[2],]
+df2 = df[df$duration > durq[1] & df$duration < durq[2] & df$distance > disq[1] & df$distance < disq[2] & df$origin_taz != "NULL" & df$destination_taz != "NULL",]
 df2 = select(df2,2:4, 7:8)
 
 # remove NAs & prev dataframes
@@ -76,5 +80,90 @@ bestgammafit(final$logdur, "log duration")
 bestgammafit(final$logfare, "log fare")
 ```
 Try exp ( Gamma(1)) & Pareto fits as well.
-compute posterior from prior and likelihood
 a-b-c-... circuit for highest fare, least distance
+total # of a-b tuples
+find fare dist, dist dist per a-b tuple - or maybe mean dist/dur
+
+```{r}
+origdest<- group_split(final %>% group_by(origin_taz,destination_taz))
+# get the median fare per src-dest tuple
+mid<-sapply(1:length(origdest), function(i) {quantile(origdest[[i]]$fare)[3]})
+sorted<-sort(unname(mid), decreasing = TRUE, index.return=TRUE)
+topk=20
+indices<-sorted$ix[1:topk]
+origins<-sapply(indices, function(i) { origdest[[i]]$origin_taz[1] })
+dest<-sapply(indices, function(i) { origdest[[i]]$destination_taz[1] })
+common<-intersect(origins, dest)
+x<-sapply(1:topk, function(i) { (dest[i] %in% common) & (origins[i] %in% common) })
+length(x[x==1])
+```
+```{r}
+sorted$x[1:topk]
+```
+
+```{r}
+# make graph of original dataset
+mylen = length(origdest)
+edgematrix<-matrix(NA,nrow=mylen,ncol=3)
+for(i in 1:mylen) {
+  edgematrix[i,] = c(origdest[[i]]$origin_taz[1],origdest[[i]]$destination_taz[1], quantile(origdest[[i]]$fare)[3]) 
+}
+g<-graph_from_edgelist(edgematrix[,1:2], directed=FALSE)
+plot(g, layout=layout.circle)
+```
+```{r}
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 60,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+plot(g2,edge.label= highfare_weights, layout=layout.circle)
+plot(g2,edge.label=highfare_weights, layout=layout.davidson.harel)
+plot(g2,edge.label=highfare_weights, layout=layout.fruchterman.reingold)
+```
+```{r}
+for(fares in seq(60,40,-2)) {
+  highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > fares,]
+  g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+  lengths = c()
+  for (v in V(g2)$name) {
+    res = all_simple_paths(g2,v)
+    lengths = c(lengths, sapply(1:length(res), function(j) { length(res[[j]]) }))
+  }
+  m = max(lengths)
+  cat(sprintf("Fare: %f, Max length: %f\n", fares, m))
+  if (m >= 9) break;
+}
+```
+
+```{r}
+# visualize the graph with simple path of length 10
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 44,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g3<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+plot(g3,layout=layout.fruchterman.reingold)
+```
+```{r}
+paths_of_length_10 = c()
+found=FALSE
+for (src in V(g3)$name) {
+    res = all_simple_paths(g3,src)
+    for(i in 1:length(res)) {
+      if (length(res[[i]]) == 9) {
+        last = res[[i]][9]$name
+        d = distances(g3,v=last,to=src)
+        if (d[1] == 1) {
+          print(res[[i]])
+          paths_of_length_10 = c(paths_of_length_10, res[[i]])
+          found=TRUE
+          break
+        }
+      }
+    }
+    if(found) break
+}
+```
+```{r}
+plot(g3, mark.groups=c("9", "10", "16", "15", "7C", "18", "11", "17", "2A"), mark.col="red")
+plot(make_undirected_graph(c("9", "10","10","16", "16","15", "15","7C", "7C","18", "18","11", "11","17", "17","2A", "2A", "9")), edge.color="red")
+```
+
+
