@@ -1,0 +1,428 @@
+---
+title: "Bayesian Data Analysis of an Uber Driver's Optimal Daily Circuit"
+author: "Krishnan Raman"
+date: "12/3/2020"
+output: 
+  beamer_presentation: 
+    theme: Darmstadt
+    colortheme: seagull
+    fonttheme: professionalfonts
+    fig_caption: yes
+---
+
+Contents
+========================================================
+
+- Uber Dataset, Distributions
+- Uber Graphs & Subgraphs
+- What's an Optimal Daily Circuit ?
+- Finding the Optimal Daily Circuit
+- Optimal Circuit Summary Statitics
+- Posterior Mean of the Optimal Daily Circuit
+- Comparing Two Optimal circuits
+- Future Work
+
+Uber Dataset
+========================================================
+- 29 million rows
+```{r , echo=FALSE}
+setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
+load("final.Rda")
+head(final, 20)
+```
+
+Distance Distribution
+========================================================
+
+```{r, echo=FALSE,out.height="60%"}
+hist(final$distance, main="Distance")
+summary(final$distance)
+```
+
+Duration Distribution
+========================================================
+
+```{r, echo=FALSE,out.height="60%"}
+hist(final$duration, main="Duration")
+summary(final$duration)
+```
+
+Fare Distribution
+========================================================
+
+```{r, echo=FALSE,out.height="60%"}
+hist(final$fare, main="Fare")
+summary(final$fare)
+```
+
+Modeling log(Distance), log(Duration) with Gamma Priors
+===============================================
+```{r , echo=FALSE,out.height="80%"}
+bestgammafit = function(x,title) {
+  dist_scale = var(x)/mean(x)
+  dist_shape = mean(x)/dist_scale
+  plot(density(x), main=title)
+  px=seq(0,5,0.05)
+  py=dgamma(px,scale=dist_scale, shape=dist_shape)
+  lines(px,py, col='red')
+}
+par(mfrow=c(1,2))
+bestgammafit(log(1.0+final$distance), "log distance")
+bestgammafit(log(1.0 + final$duration), "log duration")
+```
+
+Uber Traffic as a Complete Graph
+===============================================
+```{r}
+library(igraph)
+# make graph of original dataset
+setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
+all_edges <- readRDS("all_edges.Rda")
+n<- dim(all_edges)[1]
+e1<-matrix(NA,nrow=n,ncol=3)
+for(i in 1:n) {
+  e1[i,] = c(all_edges[[i,1]],all_edges[[i,2]],all_edges[[i,3]])
+}
+g<-graph_from_edgelist(e1[,1:2], directed=FALSE)
+```
+
+Uber Traffic as a Complete Graph
+===============================================
+```{r , echo=FALSE,out.height="80%"}
+plot(g, layout=layout.circle, main=paste("Vertices:", length(V(g)), "Edges:", length(E(g))))
+```
+
+Uber Traffic as a Complete Graph
+===============================================
+```{r , echo=FALSE,out.height="80%"}
+par(mfrow=c(1,2))
+plot(g, layout=layout.fruchterman.reingold, main=paste("Vertices:", length(V(g)), "Edges:", length(E(g))))
+plot(g, layout=layout.grid, main=paste("Vertices:", length(V(g)), "Edges:", length(E(g))))
+```
+
+Subgraph induced by Top-100 (most lucrative) edges.
+===============================================
+```{r, echo=FALSE,out.height="80%"}
+# make graph of original dataset
+setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
+topk_edges <- readRDS("topk.Rda")
+n<- dim(topk_edges)[1]
+edgematrix<-matrix(NA,nrow=n,ncol=3)
+for(i in 1:n) {
+  edgematrix[i,] = c(topk_edges[[i,1]],topk_edges[[i,2]],topk_edges[[i,3]])
+}
+g<-graph_from_edgelist(edgematrix[,1:2], directed=FALSE)
+plot(g, layout=layout.circle, main=paste("Vertices:", length(V(g)), "Edges:", length(E(g))))
+```
+
+What's an Optimal Daily Circuit ?
+============================================
+- Circuit: Collection of edges
+- Want a closed circuit aka Cycle or loop
+- Want a "simple path" : each node visited only once
+
+## Optimal Circuit
+- Circuit that makes the most money for the Uber Driver
+
+## Optimal Daily Circuit
+- Driver works 9AM-5PM: 8 HOURS
+- Make 1 Uber trip per hour
+- Want an 8-cycle aka Simple Path with 8 Nodes aka 8-gon
+
+Does a $60 per edge sparse graph contain an 8-gon ?
+============================================
+```{r, echo=FALSE,out.height="80%"}
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 60,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+plot(g2,edge.label= highfare_weights, layout=layout.circle)
+```
+
+How many edges guarantee an 8-gon ? 
+============================================
+```{r}
+for(fares in seq(60,45,-2)) {
+  highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > fares,]
+  g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+  lengths = c()
+
+  for (v in V(g2)$name) {
+    res = all_simple_paths(g2,v)
+   lengths = c(lengths, max(sapply(1:length(res), function(j) { length(res[[j]]) })))
+  }
+  cat(sprintf("Fare: $%.0f, Longest path length: %.0f, Vertices:%.0f Edges %.0f\n", fares, max(lengths), length(V(g2)),length(E(g2))))
+}
+```
+
+Finding the 8-gon
+============================================
+```{r}
+# visualize the graph with simple path of length 8
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 46,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g3<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+paths_of_length_8 = c()
+found=FALSE
+for (src in V(g3)$name) {
+    res = all_simple_paths(g3,src)
+    for(i in 1:length(res)) {
+      l = length(res[[i]])
+      last = res[[i]][l]$name
+      d = distances(g3,v=last,to=src)
+      if (l == 8 & d[1] == 1) {
+          paths_of_length_8 = c(paths_of_length_8, res[[i]])
+          print(res[[i]])
+      }
+      if (length(paths_of_length_8) == 16) {
+          found=TRUE
+          break
+      }
+    }
+    if(found) break
+}
+```
+
+The Optimal 8-gon!
+============================================
+```{r, echo=FALSE,out.height="80%"}
+plot(g3, mark.groups=names(paths_of_length_8[1:8]), mark.col="red")
+```
+
+How much does the 8-gon Uber driver make ?
+============================================
+```{r, echo=FALSE,out.height="80%"}
+getidx = function(src,dest) {
+  #cat(paste(src,",",dest, "\n"))
+  srcidx = which(topk_edges == src, arr.ind=TRUE)
+  destidx = which(topk_edges == dest, arr.ind=TRUE)
+ 
+  r = intersect(srcidx[,1], destidx[,1])[1]
+  #print(srcidx)
+  #print(destidx)
+  #print(r)
+  return(r)
+}
+
+get_fare_dist = function(src,dest) {
+   r = getidx(src,dest)
+   return(topk_edges[[r,4]])
+}
+
+get_median_fare=function(src,dest) {
+  r = getidx(src,dest)
+  if (topk_edges[[r,1]] == src & topk_edges[[r,2]] == dest) {
+     return(topk_edges[[r,3]])  
+  } else if (topk_edges[[r,2]] == src & topk_edges[[r,1]] == dest) {
+    return(topk_edges[[r,3]])
+  } else return(-1)
+}
+
+
+vlist = c()
+for(i in 1:7) {
+  vlist = c(vlist, names(paths_of_length_8[i]), names(paths_of_length_8[i+1]))
+}
+vlist = c(vlist, names(paths_of_length_8[8]), names(paths_of_length_8[1]))
+edge_wt = numeric(8)
+for(i in 0:7) {
+  f = 2*i + 1
+  t = f+1
+  sf = vlist[f]
+  dt = vlist[t]
+  edge_wt[i+1] = get_median_fare(sf,dt)
+}
+
+plot(make_undirected_graph(vlist),edge.color="red", layout=layout.circle, edge.label=round(edge_wt))
+```
+
+Optimal Circuit Summary Statistics
+============================================
+```{r, echo=FALSE,out.height="80%"}
+stats_df = data.frame()
+ckt_dist = numeric(8)
+for(i in 0:7) {
+  f = 2*i + 1
+  t = f+1
+  sf = vlist[f]
+  dt = vlist[t]
+  dist = get_fare_dist(sf,dt)
+  ckt_dist[(i+1)] = getidx(sf,dt)
+  stats_df[(i+1),1:2] = c(sf,dt)
+  stats_df[(i+1),3:6] = round(c(mean(dist), median(dist), sd(dist), var(dist)),2)
+}
+colnames(stats_df) <- c("Src", "Dest", "Mean", "Median", "Sigma", "Var")
+print(stats_df)
+```
+
+Optimal Circuit: Edge Distributions
+============================================
+```{r, echo=FALSE,out.height="80%"}
+#obtain n samples from the circuit just once
+n = 1000
+get_circuit_sample <- function() {
+  return(sum(sapply(1:8, function(i) { 
+    r = ckt_dist[i]
+    dist = topk_edges[[r,4]]  
+    sample(dist,1) 
+  })))
+}
+
+y_i = sapply(1:n, function(i){get_circuit_sample()})
+
+par(mfrow=c(2,4))
+for(i in 1:8) {
+  r = ckt_dist[i]
+  dist = topk_edges[[r,4]]  
+  hist(dist,breaks=20, main=paste("Edge ", vlist[2*(i-1)+1], "->", vlist[2*i]))
+}
+```
+
+Posterior Mean of the Optimal Daily Circuit
+============================================
+```{r, echo=FALSE,out.height="80%"}
+#obtain n samples from the circuit m times
+n=100
+m=100
+means = numeric(m)
+get_circuit_sample <- function() {
+  return(sum(sapply(1:8, function(i) { 
+    r = ckt_dist[i]
+    dist = topk_edges[[r,4]]  
+    sample(dist,1) 
+  })))
+}
+
+for(j in 1:m) {
+  y_i = sapply(1:n, function(i){get_circuit_sample()})
+  means[j] = mean(y_i)
+}
+
+sigma_y = sum(means)
+
+# variance of data
+sigmasq = sum(stats_df$Var)
+# prior param
+mu0 = 400 #$50 per edge times 8
+tau0sq = 320 #$40 per edge times 8
+
+denom = (1/tau0sq) + (m/sigmasq)
+
+# posterior param
+mu = (mu0/tau0sq + sigma_y/sigmasq)/denom
+sigmasq_post = 1/denom
+
+x = seq(mu0-3*sqrt(tau0sq),mu0+3*sqrt(tau0sq),.1)
+y = dnorm(x,mean=mu,sd=sqrt(sigmasq_post))
+yp = dnorm(x,mean=mu0,sd=sqrt(tau0sq))
+par(mfrow=c(1,2))
+plot(x,y, main=paste("Posterior Mean:",round(mu,1), " Var:",round(sigmasq_post,1)), col="blue", "l")
+lines(x,yp,col="red")
+abline(v=mu0, col="red")
+hist(means, breaks=20,main=paste("Posterior Mean:", round(mean(means,1)), "Var:", round(var(means),1)))
+```
+
+Comparing two Uber circuits via Confidence Distributions
+============================================
+- Professor Don Rubin: Fisher Randomization Test is a Stochastic Proof-By-Contradiction.
+- FRT = distribution-free test to compare two (multimodal) Uber circuits
+- Fisher Sharp Null compares individual potential outcomes $Y_i(1) \ vs \ Y_i(0)$ for every observation.
+- An assignment is a boolean vector over two weeks. 
+- An assignment simply means on the given day, the Uber driver drove Circuit c2.
+- A non-assignment means the wages would come from Ckt c1 aka Null Hypothesis. 
+- Compute the biweekly average and compare with the null hypothesis biweekly average
+- This comparison is a simple difference test statistic.
+
+```{r, echo=FALSE,out.height="80%"}
+n<-14 # 2 weeks
+options(digits=4)
+ab <- rnorm(n,50,1)
+bc <- rnorm(n,51,2)
+ca <- rnorm(n,52,3)  
+ef <- rnorm(n,50,2)
+fg <- rnorm(n,52,3)
+ge <- rnorm(n,53,1)
+c1<- ab+bc+ca
+c2<- ef+fg+ge
+df<-data.frame(ab=ab,bc=bc,ca=ca,ef=ef,fg=fg,ge=ge,Ckt_c1=c1,Ckt_c2=c2)
+head(df,n)
+```
+
+Comparing two Uber circuits via Confidence Distributions
+================================================
+```{r, echo=FALSE,out.height="80%"}
+outersect <- function(x, y) {
+  sort(c(x[!x%in%y],
+         y[!y%in%x]))
+}
+
+ ".combinadic" <- function(n, r, i) {
+     # http://msdn.microsoft.com/en-us/library/aa289166(VS.71).aspx
+     # http://en.wikipedia.org/wiki/Combinadic
+     
+     if(i < 1 | i > choose(n,r)) stop("'i' must be 0 < i <= n!/(n-r)!")
+     
+     largestV <- function(n, r, i) {
+         #v <- n-1
+         v <- n                                  # Adjusted for one-based indexing
+         #while(choose(v,r) > i) v <- v-1
+         while(choose(v,r) >= i) v <- v-1        # Adjusted for one-based indexing
+         return(v)
+     }
+     
+     res <- rep(NA,r)
+     for(j in 1:r) {
+         res[j] <- largestV(n,r,i)
+         i <- i-choose(res[j],r)
+         n <- res[j]
+         r <- r-1
+     }
+     res <- res + 1
+     return(res)
+}
+
+r<-n/2
+#assignments <- combn(n,r)
+
+len <- choose(n,r)
+t <- numeric(len)
+for(i in 1:len) {
+  #assignment<- assignments[,i]
+  assignment<-.combinadic(n,r,i)
+  y_obs <- c1
+  y_obs[assignment] <- c2[assignment]
+  not_assigned <- outersect(1:n, assignment)
+  # want Ybar(1) - Ybar(0) on the observed
+  diff <- mean(y_obs[assignment]) - mean(y_obs[not_assigned])
+  t[i] <- diff
+}
+
+hist(t, main="Distribution of test statistic")
+```
+
+Comparing two Uber circuits via Confidence Distributions
+================================================
+- For each theta, we find the proportion of assignments for which the test statistic does not exceed theta. 
+- A plot of p-value versus theta is the p-value function we seek, shown below with 95% Fisherian Interval (NOT Confidence Interval) in red.
+```{r, echo=FALSE,out.height="80%"}
+m<- round(max(abs(min(t)), abs(max(t))))
+theta <- seq(-m,m,0.1)
+nt <- length(t)
+pvalues<-c()
+for(mytheta in theta) {
+  pval<- length(t[t < mytheta])/nt
+  pvalues<-c(pvalues, pval)
+}
+plot(theta,pvalues, main="p-value function", 'p')
+lines(theta,pvalues, main="p-value function", 'l')
+abline(h=0.05,col='red')
+abline(h=0.95,col='red')
+```
+
+WIP
+================================================
+- Alternate (non-Gaussian) modeling choices for Circuits
+- Inference via MCMC & Variational Bayes
+
+
+THANK YOU
+================================================
