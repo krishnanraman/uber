@@ -10,7 +10,7 @@ output:
 ## Introduction
 
 - Uber is a ridesharing service that services millions of customers each day
-- Data were collected on individual rides from September 2014 to August 2015
+- Data were collected on individual rides in New York City from September 2014 to August 2015
 - Drivers want to know how to make the most money
 
 ## Questions
@@ -20,6 +20,7 @@ We are interested in answering the following questions:
 - What are the times in the year when the most money can be made?
 - What are the times of day when the most money can be made?
 - Which locations are the busiest?
+- What routes are the most profitable?
 
 ## The Gaussian Process
 
