@@ -1,0 +1,485 @@
+---
+title: "Bayesian Data Analysis of an Uber Driver's Optimal Daily Circuit"
+author: "Krishnan Raman"
+date: "12/3/2020"
+output: 
+  beamer_presentation: 
+    theme: Darmstadt
+    colortheme: seagull
+    fonttheme: default
+    fig_caption: yes
+---
+
+Contents
+========================================================
+
+- Uber Graphs & Subgraphs
+- What's an Optimal Daily Circuit ?
+- Finding the Optimal Daily Circuit
+- Optimal Circuit Summary Statistics
+- Posterior Mean of the fare from the Optimal Daily Circuit ( Gaussian Conjugate Prior )
+- Posterior Mean of the fare from the Optimal Daily Circuit ( Hierarchical Models, Stan/MCMC )
+- Posterior Mean of the fare from a Random Daily Circuit ( Hierarchical Models, Stan/MCMC )
+- Comparing Two Optimal circuits ( Confidence Distribution, p-value function )
+
+
+Uber Dataset
+========================================================
+- 29 million rows
+```
+  orig  dest  pickup_datetime   distance duration  fare
+1  7C    6A 2014-09-01 09:00:00     4.25   15.183 15.30
+2  7B    15 2014-09-01 18:00:00    10.17   34.083 32.28
+3  11    2A 2014-09-01 17:00:00     4.02   17.100 15.57
+4  3B    4A 2014-09-01 13:00:00     1.46    6.533  8.00
+5  2A    10 2014-09-01 14:00:00     8.31   26.283 26.29
+6  5B    4C 2014-09-01 12:00:00     1.04    8.583  8.00
+```
+
+Uber Traffic as a Complete Graph
+===============================================
+```{r, echo=FALSE,out.height="80%"}
+suppressMessages(library(igraph))
+# make graph of original dataset
+all_edges <- readRDS("all_edges.Rda")
+n<- dim(all_edges)[1]
+e1<-matrix(NA,nrow=n,ncol=3)
+for(i in 1:n) {
+  e1[i,] = c(all_edges[[i,1]],all_edges[[i,2]],all_edges[[i,3]]) # from, to, weight
+}
+g<-graph_from_edgelist(e1[,1:2], directed=FALSE)
+plot(g, layout=layout.circle, main=paste("Uber as a graph, with ", length(V(g)), "vertices,", length(E(g)), "edges."))
+```
+
+Subgraph induced by Top-100 most lucrative edges.
+===============================================
+```{r, echo=FALSE,out.height="80%"}
+# make graph of original dataset
+suppressMessages(library(igraph))
+setwd("~/R/Stat 695/Project/uber/")
+topk_edges <- readRDS("topk.Rda")
+n<- dim(topk_edges)[1]
+edgematrix<-matrix(NA,nrow=n,ncol=3)
+for(i in 1:n) {
+  edgematrix[i,] = c(topk_edges[[i,1]],topk_edges[[i,2]],topk_edges[[i,3]])
+}
+g<-graph_from_edgelist(edgematrix[,1:2], directed=FALSE)
+plot(g, layout=layout.circle, main=paste("Uber top-100 subgraph, Vertices:", length(V(g)), "Edges:", length(E(g))))
+```
+
+What's an Optimal Daily Circuit ?
+============================================
+- Circuit: Collection of edges
+- Want a closed circuit aka Cycle or loop
+- Want a "simple path" : each node visited only once
+
+## Optimal Circuit
+- Circuit that makes the most money for the Uber Driver
+
+## Optimal Daily Circuit
+- Driver works 9AM-5PM: 8 HOURS
+- Make 1 Uber trip per hour
+- Want an 8-cycle aka Simple Path with 8 Nodes aka 8-gon
+
+Does a $60 per edge sparse graph contain an 8-gon ?
+============================================
+```{r, echo=FALSE,out.height="80%"}
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 60,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+plot(g2,edge.label= highfare_weights, layout=layout.circle)
+```
+
+The Optimal 8-gon 
+==================
+```{r, echo=FALSE,out.height="80%"}
+for(fares in seq(60,45,-5)) {
+  highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > fares,]
+  g2<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+  lengths = c()
+
+  for (v in V(g2)$name) {
+    res = all_simple_paths(g2,v)
+   lengths = c(lengths, max(sapply(1:length(res), function(j) { length(res[[j]]) })))
+  }
+  cat(sprintf("Fare: $%.0f, Longest path: %.0f, Vertices:%.0f Edges %.0f\n", fares, max(lengths), length(V(g2)),length(E(g2))))
+}
+
+# visualize the graph with simple path of length 8
+highfare_matrix = edgematrix[as.numeric(edgematrix[,3]) > 46,]
+highfare_weights = round(as.numeric(highfare_matrix[,3]))
+g3<-graph_from_edgelist(highfare_matrix[,1:2], directed=FALSE)
+paths_of_length_8 = c()
+found=FALSE
+for (src in V(g3)$name) {
+    res = all_simple_paths(g3,src)
+    for(i in 1:length(res)) {
+      l = length(res[[i]])
+      last = res[[i]][l]$name
+      d = distances(g3,v=last,to=src)
+      if (l == 8 & d[1] == 1) {
+          paths_of_length_8 = c(paths_of_length_8, res[[i]])
+          #print(res[[i]])
+          found = TRUE
+          break
+      }
+    }
+    if(found) break
+}
+plot(g3, mark.groups=names(paths_of_length_8[1:8]), mark.col="red")
+```
+
+How much does the 8-gon Uber driver make ?
+============================================
+```{r, echo=FALSE,out.height="80%"}
+getidx = function(src,dest) {
+  #cat(paste(src,",",dest, "\n"))
+  srcidx = which(topk_edges == src, arr.ind=TRUE)
+  destidx = which(topk_edges == dest, arr.ind=TRUE)
+ 
+  r = intersect(srcidx[,1], destidx[,1])[1]
+  #print(srcidx)
+  #print(destidx)
+  #print(r)
+  return(r)
+}
+
+get_fare_dist = function(src,dest) {
+   r = getidx(src,dest)
+   return(topk_edges[[r,4]])
+}
+
+get_median_fare=function(src,dest) {
+  r = getidx(src,dest)
+  if (topk_edges[[r,1]] == src & topk_edges[[r,2]] == dest) {
+     return(topk_edges[[r,3]])  
+  } else if (topk_edges[[r,2]] == src & topk_edges[[r,1]] == dest) {
+    return(topk_edges[[r,3]])
+  } else return(-1)
+}
+
+
+vlist = c()
+for(i in 1:7) {
+  vlist = c(vlist, names(paths_of_length_8[i]), names(paths_of_length_8[i+1]))
+}
+vlist = c(vlist, names(paths_of_length_8[8]), names(paths_of_length_8[1]))
+edge_wt = numeric(8)
+for(i in 0:7) {
+  f = 2*i + 1
+  t = f+1
+  sf = vlist[f]
+  dt = vlist[t]
+  edge_wt[i+1] = get_median_fare(sf,dt)
+}
+
+plot(make_undirected_graph(vlist),edge.color="red", layout=layout.circle, edge.label=round(edge_wt))
+```
+
+Optimal Circuit Summary Statistics
+============================================
+```{r, echo=FALSE,out.height="80%"}
+stats_df = data.frame()
+ckt_dist = numeric(8)
+for(i in 0:7) {
+  f = 2*i + 1
+  t = f+1
+  sf = vlist[f]
+  dt = vlist[t]
+  dist = get_fare_dist(sf,dt)
+  ckt_dist[(i+1)] = getidx(sf,dt)
+  stats_df[(i+1),1:2] = c(sf,dt)
+  stats_df[(i+1),3:6] = round(c(mean(dist), median(dist), sd(dist), var(dist)),2)
+}
+colnames(stats_df) <- c("Src", "Dest", "Mean", "Median", "Sigma", "Var")
+print(stats_df)
+```
+
+Optimal Circuit: Edge Distributions
+============================================
+```{r, echo=FALSE,out.height="80%"}
+#obtain n samples from the circuit just once
+n = 1000
+get_circuit_sample <- function() {
+  return(sum(sapply(1:8, function(i) { 
+    r = ckt_dist[i]
+    dist = topk_edges[[r,4]]  
+    sample(dist,1) 
+  })))
+}
+
+y_i = sapply(1:n, function(i){get_circuit_sample()})
+
+par(mfrow=c(2,4))
+for(i in 1:8) {
+  r = ckt_dist[i]
+  dist = topk_edges[[r,4]]  
+  hist(dist,breaks=20, main=paste("Edge ", vlist[2*(i-1)+1], "->", vlist[2*i]))
+}
+```
+
+Posterior Mean of the fare from the Optimal Daily Circuit
+==========================================================
+- Edge Fare $X_i$ = Observed fares for edge $X_i$ over a year.        
+- Circuit Fare $Y = \sum X_i$, i=1:8, Y is unobserved.   
+
+## Model 1 : Gaussian Conjugate Prior
+- $X_i$ approx Gaussian, sample mean \$50, sample sd \$7   
+- We attribute a Gaussian prior $Y \sim N(50*8, 8*(7^2))$
+- Posterior Dist of Y is product of Prior & Likelihood   
+- Gaussian Conjugate prior yields Gaussian posterior
+
+## Model 2 : Hierarchical Model   
+- $X_i \sim N(\mu_i,\sigma)$
+- $\mu_i \sim N(\mu,\phi)$
+- $Y \sim N(8\mu,\sqrt{8}\sigma)$
+- Estimate posterior mean of Y via MCMC
+
+Posterior Mean of the fare from the Optimal Daily Circuit
+==========================================================
+```{r, echo=FALSE,out.height="80%"}
+n = 50
+edge_fares = sapply(1:8, function(i) { 
+    r = ckt_dist[i]
+    dist = topk_edges[[r,4]]  
+    mean(dist[1:n]) 
+  })
+
+# data
+sigma_y = n*sum(edge_fares)
+sigmasq = 392 # 6sigma = 42, sigma^2 = 49, 8*sigma^2 = 392
+
+# prior
+mu0 = 400 #$50 per edge times 8
+tau0sq = 392 
+
+# posterior
+denom = (1/tau0sq) + (n/sigmasq)
+mu = (mu0/tau0sq + sigma_y/sigmasq)/denom
+sigmasq_post = 1/denom
+
+#plotting vars
+x = seq(mu0-3*sqrt(tau0sq),mu0+3*sqrt(tau0sq),.1)
+y = dnorm(x,mean=mu,sd=sqrt(sigmasq_post))
+yp = dnorm(x,mean=mu0,sd=sqrt(tau0sq))
+
+# Gaussian prior
+plot(x,y, main=paste("Posterior Mean:",round(mu,2)), col="blue", "l")
+lines(x,yp,col="red")
+abline(v=mu0, col="red")
+```
+
+Fare Distribution: Optimal Daily Circuit
+========================================
+```{r, echo=FALSE,out.height="80%"}
+
+scode <- "
+data {
+  int<lower=0> N;
+  vector[N] y;
+  vector[N] x1;
+  vector[N] x2;
+  vector[N] x3;
+  vector[N] x4;
+  vector[N] x5;
+  vector[N] x6;
+  vector[N] x7;
+  vector[N] x8;
+}
+
+parameters {
+  real mu1;
+  real mu2;
+  real mu3;
+  real mu4;
+  real mu5;
+  real mu6;
+  real mu7;
+  real mu8;
+  real mu;
+  real<lower=0> phi; 
+  real<lower=0> sigma;
+}
+
+model {
+  y ~ normal(mu*8, sqrt(8)*sigma);
+  x1 ~ normal(mu1, sigma);
+  x2 ~ normal(mu2, sigma);
+  x3 ~ normal(mu3, sigma);
+  x4 ~ normal(mu4, sigma);
+  x5 ~ normal(mu5, sigma);
+  x6 ~ normal(mu6, sigma);
+  x7 ~ normal(mu7, sigma);
+  x8 ~ normal(mu8, sigma);
+  mu1 ~ normal(mu, phi);
+  mu2 ~normal(mu,phi);
+  mu3 ~normal(mu,phi);
+  mu4 ~ normal(mu, phi);
+  mu5 ~normal(mu,phi);
+  mu6 ~normal(mu,phi);
+  mu7 ~ normal(mu, phi);
+  mu8 ~normal(mu,phi);
+}
+"
+find_edge_dist = function(i,N) {
+  return(sample(topk_edges[[ckt_dist[i],4]],N,FALSE))
+}
+
+N=50
+x = matrix(0,8,N)
+y = numeric(50)
+for( i in 1:8) {
+  x[i,] = find_edge_dist(i,N)
+  y = y + x[i,]
+}
+hist(y, main="Fare distribution of Optimal Daily Circuit")
+```
+
+Posterior Mean of the fare from the Optimal Daily Circuit (Hierarchical Models, Stan/MCMC)
+===========================================================
+```{r, echo=FALSE,out.height="80%",error=FALSE, warning=FALSE,message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+data = list(N=N,x1=x[1,],x2=x[2,],x3=x[3,],x4=x[4,],x5=x[5,],x6=x[6,],x7=x[7,],x8=x[8,],y=y)
+
+sink("/dev/null")  
+suppressMessages(library(rstan))
+rstan_options(auto_write = FALSE)
+options(mc.cores = parallel::detectCores())
+fit <- stan(model_code = scode, data = data, iter=500, warmup=50,chains=1)
+sink()
+```
+```{r, echo=FALSE,out.height="80%",error=FALSE, warning=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+s<-summary(fit, probs = c(0.5))
+optimal_fare<-8*s$summary[9]
+suppressMessages(plot(fit, pars=c("mu","phi","mu1","mu2","mu3","mu4","mu5","mu6","mu7","mu8")))
+```
+
+
+Posterior Mean of the fare from the Optimal Daily Circuit (Hierarchical Models, Stan/MCMC)
+===========================================================
+```{r, echo=FALSE,out.height="80%"}
+cat(sprintf("Mean Fare from Optimal Daily Circuit $%.2f\n", optimal_fare))
+traceplot(fit,pars="mu")
+```
+
+Posterior Mean of the fare from a Random Daily Circuit (Hierarchical Models, Stan/MCMC)
+===========================================================
+```{r, echo=FALSE,out.height="80%", error=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+N=50
+x = matrix(0,8,N)
+ry = numeric(50)
+set.seed(12343)
+random_paths = sample(1:812,8)
+find_path_dist = function(i,N) {
+  return(sample(all_edges[[i,4]],N,FALSE))
+}
+for( i in 1:8) {
+  x[i,] = find_path_dist(random_paths[i],N)
+  ry = ry + x[i,]
+}
+
+data = list(N=N,x1=x[1,],x2=x[2,],x3=x[3,],x4=x[4,],x5=x[5,],x6=x[6,],x7=x[7,],x8=x[8,],y=ry)
+
+sink("/dev/null")  
+suppressMessages(library(rstan))
+rstan_options(auto_write = FALSE)
+options(mc.cores = parallel::detectCores())
+rfit <- stan(model_code = scode, data = data, iter=500, warmup=50,chains=1)
+sink()
+```
+
+```{r, echo=FALSE,out.height="80%", error=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rs<-summary(rfit, probs = c(0.5))
+random_fare<-8*rs$summary[9]
+daily_loss<- optimal_fare - random_fare
+
+suppressMessages(plot(rfit, pars=c("mu","phi","mu1","mu2","mu3","mu4","mu5","mu6","mu7","mu8")))
+```
+
+Posterior Mean of the fare from a Random Daily Circuit (Hierarchical Models, Stan/MCMC)
+===========================================================
+```{r, echo=FALSE,out.height="80%"}
+cat(sprintf("Mean Fare from Random Daily Circuit $%.2f\n", random_fare))
+cat(sprintf("|Optimal-Random| Median Loss: $%.2f\n", daily_loss))
+traceplot(fit,pars="mu")
+```
+
+Comparing two Uber circuits via Confidence Distributions
+============================================
+- Professor Don Rubin: "Fisher Randomization Test is a Stochastic Proof-By-Contradiction"
+- FRT = distribution-free test to compare two (multimodal) Uber circuits
+- Fisher Sharp Null compares individual potential outcomes $Y_i(1) \ vs \ Y_i(0)$ for every observation.
+- An assignment is a Boolean vector over two weeks. 
+- An assignment simply means on the given day, the Uber driver drove Circuit c2.
+- A non-assignment means the wages would come from Ckt c1 aka Null Hypothesis. 
+- Compute the biweekly average and compare with the null hypothesis biweekly average
+- This comparison is a simple difference test statistic.
+
+
+Comparing two Uber circuits via Confidence Distributions
+============================================
+```{r, echo=FALSE,out.height="80%"}
+n<-14 # 2 weeks
+options(digits=4)
+c1<- sample(y,n)
+c2<- sample(ry,n)
+
+outersect <- function(x, y) {
+  sort(c(x[!x%in%y],
+         y[!y%in%x]))
+}
+
+ ".combinadic" <- function(n, r, i) {
+     
+     if(i < 1 | i > choose(n,r)) stop("'i' must be 0 < i <= n!/(n-r)!")
+     
+     largestV <- function(n, r, i) {
+         v <- n                                  # Adjusted for one-based indexing
+         while(choose(v,r) >= i) v <- v-1        # Adjusted for one-based indexing
+         return(v)
+     }
+     
+     res <- rep(NA,r)
+     for(j in 1:r) {
+         res[j] <- largestV(n,r,i)
+         i <- i-choose(res[j],r)
+         n <- res[j]
+         r <- r-1
+     }
+     res <- res + 1
+     return(res)
+}
+n=14
+r<-(n/2)
+len <- choose(n,r)
+t <- numeric(len)
+for(i in 1:len) {
+  assignment<-.combinadic(n,r,i)
+  y_obs <- c1
+  y_obs[assignment] <- c2[assignment]
+  not_assigned <- outersect(1:n, assignment)
+  # want Ybar(1) - Ybar(0) on the observed
+  diff <- mean(y_obs[assignment]) - mean(y_obs[not_assigned])
+  t[i] <- diff
+}
+
+m<- round(max(abs(min(t)), abs(max(t))))
+theta <- seq(-m,m,1)
+nt <- length(t)
+pvalues<-c()
+for(mytheta in theta) {
+  pval<- length(t[t < mytheta])/nt
+  pvalues<-c(pvalues, pval)
+}
+
+par(mfrow=c(1,2))
+hist(t, main="Difference b/w wages of 2 ckts")
+plot(theta,pvalues, main="p-value function", 'l')
+abline(h=0.05,col='red')
+abline(h=0.95,col='red')
+```

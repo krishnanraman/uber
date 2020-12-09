@@ -39,8 +39,9 @@ Distance Distribution
 ========================================================
 
 ```{r, echo=FALSE,out.height="60%"}
-setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
-load("final.Rda")
+setwd("~/R/Stat 695/Project/uber/")
+# Need to run code in uber.Rmd first
+# load("final.Rda") This comes from running code in uber.Rmd
 hist(final$distance, main="Distance")
 summary(final$distance)
 ```
@@ -82,7 +83,6 @@ Uber Traffic as a Complete Graph
 ```{r}
 library(igraph)
 # make graph of original dataset
-setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
 all_edges <- readRDS("all_edges.Rda")
 n<- dim(all_edges)[1]
 e1<-matrix(NA,nrow=n,ncol=3)
@@ -110,7 +110,6 @@ Subgraph induced by Top-100 (most lucrative) edges.
 ===============================================
 ```{r, echo=FALSE,out.height="80%"}
 # make graph of original dataset
-setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
 topk_edges <- readRDS("topk.Rda")
 n<- dim(topk_edges)[1]
 edgematrix<-matrix(NA,nrow=n,ncol=3)

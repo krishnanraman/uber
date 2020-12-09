@@ -1,3 +1,6 @@
+# Need to run code found in uber.Rmd prior to running this
+# in order to have the 'final' dataset
+
 origdest<- group_split(final %>% group_by(origin_taz,destination_taz))
 mid<-sapply(1:840, function(i) {origdest[[i]]$`quantile(fare)`[3]})
 a<-sort(unname(mid), decreasing = TRUE, index.return=TRUE)

@@ -1,7 +1,7 @@
 ---
 title: "Bayesian Analysis of New York City's Uber Rides Data"
 author: "David Arthur, Krishnan Raman"
-date: "12/8/2020"
+date: "12/10/2020"
 output: beamer_presentation
 ---
 
@@ -41,7 +41,7 @@ Uber is a popular ridesharing platform that services millions of customers each 
 ## First Question: The Data
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/daily_trips.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/daily_trips.png}
 \end{center}
 
 ## First Question: The Model
@@ -94,37 +94,37 @@ $\tau_2^2$ & 1.0011 & 1.0022 & 2434.2481 \\
 ## First Question: Model Checking
 
 \begin{center}
-\includegraphics[scale=0.3]{C://Users/david/Documents/traceplots.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/traceplots.png}
 \end{center}
 
 ## First Question: Posterior Predictive Check
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/post_pred_check.pdf}
+\includegraphics[scale=0.45]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/post_pred_check.png}
 \end{center}
 
 ## First Question: Posterior Estimates of Trends
 
 \begin{center}
-\includegraphics[scale=0.35]{C://Users/david/Documents/trends.pdf}
+\includegraphics[scale=0.23]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/trends.png}
 \end{center}
 
 ## First Question: Weekly Trend
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/weekly_trend.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/weekly_trend.png}
 \end{center}
 
 ## First Question: Predictions
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/predictions.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/predictions.png}
 \end{center}
 
 ## Second Question: The Data
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/st_data.pdf}
+\includegraphics[scale=0.36]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/st_data.png}
 \end{center}
 
 ## Second Question: The Model
@@ -171,31 +171,31 @@ $\tau_t^2$ & 1.0193 & 1.0517 & 1115.583\\
 ## Second Question: Model Checking
 
 \begin{center}
-\includegraphics[scale=0.35]{C://Users/david/Documents/st_traceplots.pdf}
+\includegraphics[scale=0.22]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/st_traceplots.png}
 \end{center}
 
 ## Second Question: Posterior Predictive Check
 
 \begin{center}
-\includegraphics[scale=0.6]{C://Users/david/Documents/st_post_pred_check.pdf}
+\includegraphics[scale=0.45]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/st_post_pred_check.png}
 \end{center}
 
 ## Second Question: Predictions
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/st_predictions.pdf}
+\includegraphics[scale=0.36]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/st_predictions.png}
 \end{center}
 
 ## Third Question: Uber Graphs & Subgraphs
 
 \begin{center}
-\includegraphics[scale=0.6]{C://Users/david/Documents/uber_graph.pdf}
+\includegraphics[scale=0.55]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/uber_graph.png}
 \end{center}
 
 ## Third Question: Graph of Most Lucrative Edges
 
 \begin{center}
-\includegraphics[scale=0.6]{C://Users/david/Documents/uber_small_graph.pdf}
+\includegraphics[scale=0.55]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/uber_small_graph.png}
 \end{center}
 
 ## Third Question: What's an Optimal Circuit?
@@ -219,7 +219,7 @@ We are assuming:
 ## Third Question: The Optimal Circuit
 
 \begin{center}
-\includegraphics[scale=0.55]{C://Users/david/Documents/optimal_graph.pdf}
+\includegraphics[scale=0.45]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/optimal_graph.png}
 \end{center}
 
 ## Third Question: Summary Statistics for Optimal Circuit
@@ -252,7 +252,7 @@ Src & Dest & Mean & Median & Sigma & Var\\
 ## Third Question: Fare Distributions for Each Edge
 
 \begin{center}
-\includegraphics[scale=0.5]{C://Users/david/Documents/edge_dists.pdf}
+\includegraphics[scale=0.36]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/edge_dists.png}
 \end{center}
 
 ## Third Question: Two Models
@@ -278,37 +278,45 @@ Model 2 : Hierarchical Model
 - $Y \sim N(8\mu,\sqrt{8}\sigma)$
 - Estimate posterior mean of Y via MCMC
 
-## Third Question: Model 1 Posterior Distribution of Fare
+## Third Question: Model 1 Posterior of Mean Fare
 
 \begin{center}
-\includegraphics[scale=0.55]{C://Users/david/Documents/prior_post.pdf}
+\includegraphics[scale=0.45]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/prior_post.png}
 \end{center}
 
 ## Third Question: Model 2 Posterior Distributions
 
 \begin{center}
-\includegraphics[scale=0.55]{C://Users/david/Documents/stan_post.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/stan_post.png}
 \end{center}
 
-## Third Question: Model 2 Posterior Distribution of Mean Fare
+## Third Question: Model 2 Posterior of Mean Fare
+
+\centering
+Mean Fare from Optimal Daily Circuit: $437.63
 
 \begin{center}
-\includegraphics[scale=0.55]{C://Users/david/Documents/mu_post.pdf}
+\includegraphics[scale=0.3]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/mu_post.png}
 \end{center}
 
-## Fourth Question: Posterior Distributions for Random Circuit
+## Fourth Question: Random Circuit Posterior Distributions
 
 \begin{center}
-\includegraphics[scale=0.55]{C://Users/david/Documents/random_post.pdf}
+\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/random_post.png}
 \end{center}
 
-## Fourth Question: Posterior Distribution of Mean Fare for Random Circuit
+## Fourth Question: Random Circuit Mean Fare Posterior
+
+\centering
+Mean Fare from Random Daily Circuit: $235.82
+
+|Optimal-Random| Median Loss: $201.81
 
 \begin{center}
-\includegraphics[scale=0.45]{C://Users/david/Documents/random_post2.pdf}
+\includegraphics[scale=0.35]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/random_post2.png}
 \end{center}
 
-## Fourth Questions: Comparing Uber Circuit via Confidence Distributions
+## Fourth Questions: Confidence Distributions
 
 - Professor Don Rubin: "Fisher Randomization Test is a Stochastic Proof-By-Contradiction"
 - FRT = distribution-free test to compare two (multimodal) Uber circuits
@@ -319,10 +327,10 @@ Model 2 : Hierarchical Model
 - Compute the biweekly average and compare with the null hypothesis biweekly average
 - This comparison is a simple difference test statistic.
 
-## Fourth Question: Comparing Uber Circuit via Confidence Distributions
+## Fourth Question: Confidence Distributions
 
 \begin{center}
-\includegraphics[scale=0.45]{C://Users/david/Documents/post_compare.pdf}
+\includegraphics[scale=0.35]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/post_compare.png}
 \end{center}
 
 ## Conclusions

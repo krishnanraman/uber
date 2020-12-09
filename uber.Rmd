@@ -12,13 +12,10 @@ library(dplyr)
 library(igraph)
 ```
 
-
-
-
 ```{r}
 # CHANGE THIS TO LOCAL DRIVE WHERE uber_nyc_data.csv is located
 # set nrows to 40 million
-setwd("~/Desktop/695/uber-tlc-foil-response/uber-trip-data/")
+setwd("~/R/Stat 695/Project/uber/")
 df<-read.csv("uber_nyc_data.csv", nrows=1000*1000*40)
 
 # convert factor vars to formatted numbers
