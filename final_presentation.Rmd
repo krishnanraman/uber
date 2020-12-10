@@ -63,38 +63,38 @@ We assume that:
 $$f_1 \sim \mathcal{N}(0, \tau_1^2 \ K_1), \ f_2 \sim \mathcal{N}(0, \tau_2^2 \ K_2)$$
 $$K_1(t, t') = \text{exp}\Bigg(-\frac{|t-t'|^2}{(2)(7^2)}\Bigg), \ K_2(t, t') = \text{exp}\Bigg(-\frac{-2 \ \text{sin}^2(\pi |t-t'|/7)}{7^2}\Bigg)$$
 $$\pi(\beta) \propto 1$$
-$$\sigma^2 \sim \text{InverseGamma}(3, 5)$$
-$$\tau_1^2, \tau_2^2 \sim \text{Gamma}(1.5, 0.2)$$
+$$\sigma^2, \tau_1^2 \sim \text{InverseGamma}(3, 5)$$
+$$\tau_2^2 \sim \text{Gamma}(1.5, 0.2)$$
 
-A Gibbs Sampler with MH-steps for $\tau_1^2$ and $\tau_2^2$ is implemented to sample from the marginal posterior $f(Y|\beta, \sigma^2, \tau_1^2, \tau_2^2)$ where $Y|\beta, \sigma^2, \tau_1^2, \tau_2^2 \sim \mathcal{N}(X\beta, K_1 + K_2 + \sigma^2 I)$ and then these can be used to estimate $f_1$ and $f_2$.
+A Gibbs Sampler with an MH-step for $\tau_2^2$ is implemented to sample from the posterior.
 
 ## First Question: Model Checking
 
-\begin{figure}
-\centering
-\begin{tabular}{l|r|r|r}
-\hline
-  & GR Estimate & Upper C.I. & ESS \\
-\hline
-$\beta_0$ & 1.0015 & 1.0016 & 14032.3905 \\
-\hline
-$\beta_1$ & 1.0006 & 1.0009 & 30000.0000 \\
-\hline
-$\beta_2$ & 1.0015 & 1.0017 & 22429.7924 \\
-\hline
-$\sigma^2$ & 1.0001 & 1.0004 & 21527.7282 \\
-\hline
-$\tau_1^2$ & 1.0008 & 1.0016 & 683.5401 \\
-\hline
-$\tau_2^2$ & 1.0011 & 1.0022 & 2434.2481 \\
-\hline
-\end{tabular}
-\end{figure}
+\begin{table}
+    \centering
+    \begin{tabular}{l|r|r|r}
+    \hline
+      & GR Estimate & GR Upper CI & ESS \\
+    \hline
+    $\beta_0$ & 1.0001 & 1.0006 & 26641.7164\\
+    \hline
+    $\beta_1$ & 1.0001 & 1.0005 & 23901.4395\\
+    \hline
+    $\beta_2$ & 1.0002 & 1.0007 & 36927.7226\\
+    \hline
+    $\sigma^2$ & 0.9999 & 0.9999 & 25271.5523\\
+    \hline
+    $\tau_1^2$ & 1.0004 & 1.0018 & 11983.7929\\
+    \hline
+    $\tau_2^2$ & 1.0172 & 1.0278 & 98.0828\\
+    \hline
+    \end{tabular}
+\end{table}
 
 ## First Question: Model Checking
 
 \begin{center}
-\includegraphics[scale=0.4]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/traceplots.png}
+\includegraphics[scale=0.25]{C://Users/david/Documents/R/Stat 695/Project/uber/Plots/traceplots.png}
 \end{center}
 
 ## First Question: Posterior Predictive Check
@@ -262,14 +262,11 @@ Circuit Fare $Y = \sum X_i$, i=1:8, Y is unobserved.
 
 Model 1 : Gaussian Conjugate Prior
 
-- $X_i \sim N(1/8\mu, 1/8\sigma^2) \rightarrow Y \sim N(\mu, \sigma^2)$
-- $\mu \sim N(50*8, 8*(7^2))$
-- Posterior Dist of Y proportional to product of Prior & Likelihood
+- $X_i$ approx Gaussian, sample mean \$50, sample sd \$7
+- Prior on $\mu$ is $\mu \sim N(400, 392)$
+- We attribute a Gaussian prior $Y \sim N(50*8, 8*(7^2))$
+- Posterior Dist of Y is product of Prior & Likelihood
 - Gaussian Conjugate prior yields Gaussian posterior
-<!-- - $X_i$ approx Gaussian, sample mean \$50, sample sd \$7    -->
-<!-- - We attribute a Gaussian prior $Y \sim N(50*8, 8*(7^2))$ -->
-<!-- - Posterior Dist of Y is product of Prior & Likelihood    -->
-<!-- - Gaussian Conjugate prior yields Gaussian posterior -->
 
 Model 2 : Hierarchical Model   
 

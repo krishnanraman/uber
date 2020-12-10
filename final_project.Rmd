@@ -19,323 +19,332 @@ setwd("~/R/Stat 695/Project/uber/")
 load(file = "trip_counts.RData")
 load(file = "trip_data.RData")
 load(file = "uber.RData")
+load(file = "uber2.RData")
 topk_edges <- readRDS(file = "topk.Rda")
 all_edges <- readRDS(file = "all_edges.Rda")
 ```
 
 ```{r}
-# exp.kernel <- function(x, tau21, l21){
-#   D <- as.matrix(dist(x, diag = TRUE, upper = TRUE))
-#   tau21*exp(-1/(2*l21)*D^2)
-# }
-# 
-# period.kernel <- function(x, tau22, l22){
-#   D <- as.matrix(dist(x, diag = TRUE))
-#   tau22*exp(-2/(l22)*sin(pi*D/7)^2)  
-# }
-# 
-# kernel <- function(x, tau21, tau22, l21, l22){
-#   exp.kernel(x, tau21, l21) + period.kernel(x, tau22, l22)
-# }
-# 
-# gp.temp <- function(x, Y, niter, parm_inits, prior_parms, 
-#                     mh_parms, length_scales){
-#   pb <- progress_bar$new(total = niter-1)
-#   
-#   sdY <- sd(Y)
-#   meanY <- mean(Y)
-#   Y2 <- scale(Y)
-#   x2 <- x-mean(x)
-#   X <- cbind(1, x2, x2^2)
-#   P <- ncol(X)
-#   N <- nrow(X)
-#   
-#   beta_save <- matrix(0, niter, P)
-#   sig2_save <- rep(0, niter)
-#   tau21_save <- rep(0, niter)
-#   tau22_save <- rep(0, niter)
-#   
-#   In <- diag(N)
-#   delta <- 10e-06
-#   
-#   beta_save[1,] <- parm_inits[["beta"]]
-#   sig2_save[1] <- parm_inits[["sig2"]]
-#   tau21_save[1] <- parm_inits[["tau21"]]
-#   tau22_save[1] <- parm_inits[["tau22"]]
-#   
-#   sig2a <- prior_parms[["sig2a"]]
-#   sig2b <- prior_parms[["sig2b"]]
-#   tau21a <- prior_parms[["tau21a"]]
-#   tau21b <- prior_parms[["tau21b"]]
-#   tau22a <- prior_parms[["tau22a"]]
-#   tau22b <- prior_parms[["tau22b"]]
-#   
-#   tau21_sd <- mh_parms[["tau21_sd"]]
-#   tau22_sd <- mh_parms[["tau22_sd"]]
-#   
-#   l21 <- length_scales[["l21"]]
-#   l22 <- length_scales[["l22"]]
-#   
-#   for (i in 2:niter){
-#     K <- kernel(x2, tau21_save[i-1], tau22_save[i-1], l21, l22) + delta
-#     Sigma <- sig2_save[i-1]*In + K
-#     W <- chol2inv(chol(Sigma))
-#     
-#     res <- Y2-X%*%beta_save[i-1,]
-#     
-#     sig2_save[i] <- 1/rgamma(1, N/2 + sig2a,
-#                              sig2b + 0.5*t(res)%*%W%*%res)
-#     
-#     Sigma <- sig2_save[i]*In + K
-#     W <- chol2inv(chol(Sigma))
-#     
-#     beta_save[i,] <- chol2inv(chol(t(X)%*%W%*%X))%*%t(X)%*%W%*%Y2
-#     
-#     tau21_star <- rnorm(1, tau21_save[i-1], tau21_sd)
-#     tau21_save[i] <- tau21_save[i-1]
-#     
-#     if (tau21_star > 0){
-#       K_star <- kernel(x2, tau21_star, tau22_save[i-1], l21, l22) + delta
-#       Sigma_star <- sig2_save[i]*In + K_star
-#       W_star <- chol2inv(chol(Sigma_star))
-#       
-#       acc_prob <- 
-#         -1/2*determinant(Sigma_star, logarithm = TRUE)$modulus[1] -
-#         1/2*t(res)%*%W_star%*%res + (tau21a-1)*log(tau21_star) -
-#         tau21b*tau21_star + 
-#         1/2*determinant(Sigma, logarithm = TRUE)$modulus[1] +
-#         1/2*t(res)%*%W%*%res - (tau21a-1)*log(tau21_save[i-1]) +
-#         tau21b*tau21_save[i-1]
-#       
-#       if (log(runif(1)) < acc_prob){
-#         tau21_save[i] <- tau21_star
-#         K <- K_star
-#         W <- W_star
-#         Sigma <- Sigma_star
-#       } 
-#     }
-#     
-#     tau22_star <- rnorm(1, tau22_save[i-1], tau22_sd)
-#     tau22_save[i] <- tau22_save[i-1]
-#     
-#     if (tau22_star > 0){
-#       K_star <- kernel(x2, tau21_save[i], tau22_star, l21, l22) + delta
-#       Sigma_star <- sig2_save[i]*In + K_star
-#       W_star <- chol2inv(chol(Sigma_star))
-#       
-#       acc_prob <- 
-#         -1/2*determinant(Sigma_star, logarithm = TRUE)$modulus[1] -
-#         1/2*t(res)%*%W_star%*%res + (tau22a-1)*log(tau22_star) -
-#         tau22b*tau22_star + 
-#         1/2*determinant(Sigma, logarithm = TRUE)$modulus[1] +
-#         1/2*t(res)%*%W%*%res - (tau22a-1)*log(tau22_save[i-1]) +
-#         tau22b*tau22_save[i-1]
-#       
-#       if (log(runif(1)) < acc_prob){
-#         tau22_save[i] <- tau22_star
-#         K <- K_star
-#         W <- W_star
-#         Sigma <- Sigma_star
-#       } 
-#     }
-#     
-#     pb$tick()
-#   }
-#   
-#   parm_names <- c("b0", "b1", "b2", "sig2", "tau21", "tau22")
-#   parm_samples <- cbind(beta_save, sig2_save, tau21_save, tau22_save)
-#   colnames(parm_samples) <- parm_names
-#   
-#   list(samples = parm_samples,
-#        acc_rates = c(sum(diff(tau21_save)!=0)/niter,
-#                      sum(diff(tau22_save)!=0)/niter))
-# }
-# 
-# gp.temp.cluster <- function(mcmc_comb){
-#   x <- mcmc_comb[["x"]]
-#   Y <- mcmc_comb[["Y"]]
-#   niter <- mcmc_comb[["niter"]]
-#   parm_inits <- mcmc_comb[["parm_inits"]]
-#   prior_parms <- mcmc_comb[["prior_parms"]]
-#   mh_parms <- mcmc_comb[["mh_parms"]]
-#   length_scales <- mcmc_comb[["length_scales"]]
-#   
-#   gp.temp(x, Y, niter, parm_inits, prior_parms,
-#           mh_parms, length_scales)
-# }
-# 
-# space.kern <- function(D, l2){
-#   exp(-1/(2*l2)*D)
-# }
-# 
-# space.D <- function(lat_long){
-#   D <- as.matrix(dist(lat_long, diag = TRUE, upper = TRUE))^2
-# }
-# 
-# time.kern <- function(D, l2){
-#   exp(-1/(2*l2)*D)
-# }
-# 
-# time.D <- function(tt){
-#   D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
-# }
-# 
-# gau.pro.spat.temp <- function(data, niter, 
-#                               l2_space = 0.005, l2_time = 12,
-#                               prior_a = 3, prior_b = 5, var_init = 2){
-#   Y <- log(data[,3]+1)
-#   tt <- unique(data[,2])
-#   
-#   Ymean <- mean(Y)
-#   Ysd <- sd(Y)
-#   Y <- (Y-Ymean)/Ysd
-#   
-#   lat_long <- unique(data[,4:5])
-#   rownames(lat_long) <- NULL
-#   
-#   N <- length(tt)*nrow(lat_long)
-#   
-#   D_space <- space.D(lat_long)
-#   K_space <- space.kern(D_space, l2_space) + diag(10e-06, nrow(lat_long))
-#   D_time <- time.D(tt)
-#   K_time <- time.kern(D_time, l2_time) + diag(10e-06, length(tt))
-#   
-#   K_space_inv <- solve(K_space)
-#   K_time_inv <- solve(K_time)
-#   
-#   f_save <- matrix(0, niter, length(Y))
-#   sig2_save <- rep(0, niter)
-#   tau2_space_save <- rep(0, niter)
-#   tau2_time_save <- rep(0, niter)
-#   
-#   sig2_a <- prior_a
-#   sig2_b <- prior_b
-#   tau2_time_a <- prior_a
-#   tau2_time_b <- prior_b
-#   tau2_space_a <- prior_a
-#   tau2_space_b <- prior_b
-#   
-#   sig2_save[1] <- var_init
-#   tau2_space_save[1] <- var_init
-#   tau2_time_save[1] <- var_init
-#   
-#   for (i in 2:niter){
-#     K_space_time <- kronecker(tau2_space_save[i-1]*K_space,
-#                          tau2_time_save[i-1]*K_time)
-#     sig2I <- diag(sig2_save[i-1], N)
-#     f_Sigma <- K_space_time + sig2I
-#     
-#     f_Mu <- K_space_time%*%solve(f_Sigma, Y)
-#     f_Sigma <- K_space_time - K_space_time%*%solve(f_Sigma, K_space_time)
-#     
-#     f_save[i,] <- rmvnorm(1, f_Mu, f_Sigma)
-#     
-#     sig2_save[i] <- 1/rgamma(1, sig2_a + N/2, 
-#                              sig2_b + 0.5*t(Y-f_save[i,])%*%(Y-f_save[i,]))
-#     
-#     tau2_space_Sigma <- kronecker(K_space_inv, 1/tau2_time_save[i-1]*K_time_inv)
-#     
-#     tau2_space_save[i] <- 1/rgamma(1, tau2_space_a + N/2, 
-#                                 tau2_space_b + 0.5*t(f_save[i,])%*%tau2_space_Sigma%*%f_save[i,])
-#     
-#     tau2_time_Sigma <- kronecker(1/tau2_space_save[i]*K_space_inv, K_time_inv)
-#     
-#     tau2_time_save[i] <- 1/rgamma(1, tau2_time_a + N/2, 
-#                                   tau2_time_b + 0.5*t(f_save[i,])%*%tau2_time_Sigma%*%f_save[i,])
-#   }
-#   
-#   cbind(f_save, sig2_save, tau2_space_save, tau2_time_save)
-# }
-```
+exp.kernel <- function(x, tau21, l21){
+  D <- as.matrix(dist(x, diag = TRUE, upper = TRUE))
+  tau21*exp(-1/(2*l21)*D^2)
+}
 
-```{r}
-# parm_inits1 <- list(beta = c(0, 0, 0),
-#                     sig2 = 0.5, 
-#                     tau21 = 5, 
-#                     tau22 = 5)
-# 
-# parm_inits2 <- list(beta = c(10, -10, 0),
-#                     sig2 = 5,
-#                     tau21 = 1,
-#                     tau22 = 1)
-# 
-# parm_inits3 <- list(beta = c(0, 10, -10),
-#                     sig2 = 1,
-#                     tau21 = 10,
-#                     tau22 = 1)
-# 
-# prior_parms <- list(sig2a = 3, sig2b = 5, tau21a = 1.5, tau21b = 0.2,
-#                    tau22a = 1.5, tau22b = 0.2)
-# 
-# mh_parms <- list(tau21_sd = 0.15, tau22_sd = 15)
-# 
-# length_scales1 <- list(l21 = 365.25/52, l22 = 365.25/52)
-# length_scales2 <- list(l21 = 365.25/12, l22 = 365.25/52)
-# length_scales3 <- list(l21 = 365.25/52, l22 = 365.25/12)
-# length_scales4 <- list(l21 = 365.25/12, l22 = 365.25/12)
+period.kernel <- function(x, tau22, l22){
+  D <- as.matrix(dist(x, diag = TRUE))
+  tau22*exp(-2/(l22)*sin(pi*D/7)^2)
+}
+
+kernel <- function(x, tau21, tau22, l21, l22){
+  exp.kernel(x, tau21, l21) + period.kernel(x, tau22, l22)
+}
+
+gp.temp <- function(x, Y, niter, parm_inits, prior_parms,
+                    mh_parms, length_scales){
+  pb <- progress_bar$new(total = niter-1)
+
+  sdY <- sd(Y)
+  meanY <- mean(Y)
+  Y2 <- scale(Y)
+  x2 <- x-mean(x)
+  X <- cbind(1, x2, x2^2)
+  P <- ncol(X)
+  N <- nrow(X)
+  In <- diag(N)
+  delta <- 10e-04
+
+  beta_save <- matrix(0, niter, P)
+  sig2_save <- rep(0, niter)
+  tau21_save <- rep(0, niter)
+  tau22_save <- rep(0, niter)
+  f1_save <- matrix(0, niter, N)
+  f2_save <- matrix(0, niter, N)
+
+  beta_save[1,] <- parm_inits[["beta"]]
+  sig2_save[1] <- parm_inits[["sig2"]]
+  tau21_save[1] <- parm_inits[["tau21"]]
+  tau22_save[1] <- parm_inits[["tau22"]]
+  f1_save[1,] <- parm_inits[["f1"]]
+  f2_save[1,] <- parm_inits[["f2"]]
+
+  sig2a <- prior_parms[["sig2a"]]
+  sig2b <- prior_parms[["sig2b"]]
+  tau21a <- prior_parms[["tau21a"]]
+  tau21b <- prior_parms[["tau21b"]]
+  tau22a <- prior_parms[["tau22a"]]
+  tau22b <- prior_parms[["tau22b"]]
+
+  tau21_sd <- mh_parms[["tau21_sd"]]
+  tau22_sd <- mh_parms[["tau22_sd"]]
+
+  l21 <- length_scales[["l21"]]
+  l22 <- length_scales[["l22"]]
+  
+  K1 <- exp.kernel(x2, 1, l21) + diag(delta, N)
+  K2 <- period.kernel(x2, 1, l22) + diag(delta, N)
+  K1inv <- chol2inv(chol(K1))
+  K2inv <- chol2inv(chol(K2))
+  logdet_K2 <- determinant(K2, logarithm = TRUE)$modulus[1]
+  
+  K1_tau21 <- tau21_save[1]*K1
+  K2_tau22 <- tau22_save[1]*K2
+  K <- K1_tau21+K2_tau22
+
+  for (i in 2:niter){
+    res <- Y2-X%*%beta_save[i-1,]-f1_save[i-1,]-f2_save[i-1,]
+
+    sig2_save[i] <- 1/rgamma(1, N/2 + sig2a,
+                             sig2b + 0.5*t(res)%*%res)
+
+    Sigma <- sig2_save[i]*In + K
+
+    beta_Sigma <- chol2inv(chol(t(X)%*%X))
+    beta_Mu <- beta_Sigma%*%t(X)%*%Y2
+    beta_save[i,] <- rmvnorm(1, beta_Mu, sig2_save[i]*beta_Sigma)
+    
+    Xb <- X%*%beta_save[i,]
+
+    tau21_save[i] <- 1/rgamma(1, N/2 + tau21a,
+                              tau21b + 0.5*t(f1_save[i-1,])%*%K1inv%*%(f1_save[i-1,]))
+    
+    K1_tau21 <- tau21_save[i]*K1
+  
+    tau22_star <- rnorm(1, tau22_save[i-1], tau22_sd)
+    tau22_save[i] <- tau22_save[i-1]
+
+    if (tau22_star > 0){
+      K2_tau22_star <- tau22_star*K2
+      
+      acc_prob <-
+        -N/2*log(tau22_star) - 1/2*logdet_K2 -
+        1/(2*tau22_star)*t(f2_save[i-1,])%*%K2inv%*%f2_save[i-1,] + 
+        (tau22a-1)*log(tau22_star) - tau22b*tau22_star -
+        (-N/2*log(tau22_save[i-1]) - 1/2*logdet_K2 -
+           1/(2*tau22_save[i-1])*t(f2_save[i-1,])%*%K2inv%*%f2_save[i-1,] + 
+           (tau22a-1)*log(tau22_save[i-1]) - tau22b*tau22_save[i-1])
+
+      if (log(runif(1)) < acc_prob){
+        tau22_save[i] <- tau22_star
+        K2_tau22 <- tau22_save[i]*K2
+      }
+    }
+    
+    K <- K1_tau21 + K2_tau22
+    Sigma <- sig2_save[i]*In + K
+    W <- chol2inv(chol(Sigma))
+    
+    f1_Sigma <- K1_tau21%*%W
+    f1_save[i,] <- rmvnorm(1, f1_Sigma%*%(Y2-Xb), 
+                           K1_tau21 - f1_Sigma%*%K1_tau21)
+    
+    f2_Sigma <- K2_tau22%*%W
+    f2_save[i,] <- rmvnorm(1, f2_Sigma%*%(Y2-Xb),
+                           K2_tau22 - f2_Sigma%*%K2_tau22)
+
+    pb$tick()
+  }
+
+  parm_names <- c(paste("f1", 1:N), 
+                  paste("f2", 1:N),
+                  "b0", "b1", "b2", "sig2", "tau21", "tau22")
+  parm_samples <- cbind(f1_save, f2_save,
+                        beta_save, sig2_save, 
+                        tau21_save, tau22_save)
+  colnames(parm_samples) <- parm_names
+
+  list(samples = parm_samples,
+       acc_rates = sum(diff(tau22_save)!=0)/niter)
+}
+
+gp.temp.cluster <- function(mcmc_comb){
+  x <- mcmc_comb[["x"]]
+  Y <- mcmc_comb[["Y"]]
+  niter <- mcmc_comb[["niter"]]
+  parm_inits <- mcmc_comb[["parm_inits"]]
+  prior_parms <- mcmc_comb[["prior_parms"]]
+  mh_parms <- mcmc_comb[["mh_parms"]]
+  length_scales <- mcmc_comb[["length_scales"]]
+
+  gp.temp(x, Y, niter, parm_inits, prior_parms,
+          mh_parms, length_scales)
+}
+
+space.kern <- function(D, l2){
+  exp(-1/(2*l2)*D)
+}
+
+space.D <- function(lat_long){
+  D <- as.matrix(dist(lat_long, diag = TRUE, upper = TRUE))^2
+}
+
+time.kern <- function(D, l2){
+  exp(-1/(2*l2)*D)
+}
+
+time.D <- function(tt){
+  D <- as.matrix(dist(tt, diag = TRUE, upper = TRUE))^2
+}
+
+gau.pro.spat.temp <- function(data, niter,
+                              l2_space = 0.005, l2_time = 12,
+                              prior_a = 3, prior_b = 5, var_init = 2){
+  Y <- log(data[,3]+1)
+  tt <- unique(data[,2])
+
+  Ymean <- mean(Y)
+  Ysd <- sd(Y)
+  Y <- (Y-Ymean)/Ysd
+
+  lat_long <- unique(data[,4:5])
+  rownames(lat_long) <- NULL
+
+  N <- length(tt)*nrow(lat_long)
+
+  D_space <- space.D(lat_long)
+  K_space <- space.kern(D_space, l2_space) + diag(10e-06, nrow(lat_long))
+  D_time <- time.D(tt)
+  K_time <- time.kern(D_time, l2_time) + diag(10e-06, length(tt))
+
+  K_space_inv <- solve(K_space)
+  K_time_inv <- solve(K_time)
+
+  f_save <- matrix(0, niter, length(Y))
+  sig2_save <- rep(0, niter)
+  tau2_space_save <- rep(0, niter)
+  tau2_time_save <- rep(0, niter)
+
+  sig2_a <- prior_a
+  sig2_b <- prior_b
+  tau2_time_a <- prior_a
+  tau2_time_b <- prior_b
+  tau2_space_a <- prior_a
+  tau2_space_b <- prior_b
+
+  sig2_save[1] <- var_init
+  tau2_space_save[1] <- var_init
+  tau2_time_save[1] <- var_init
+
+  for (i in 2:niter){
+    K_space_time <- kronecker(tau2_space_save[i-1]*K_space,
+                         tau2_time_save[i-1]*K_time)
+    sig2I <- diag(sig2_save[i-1], N)
+    f_Sigma <- K_space_time + sig2I
+
+    f_Mu <- K_space_time%*%solve(f_Sigma, Y)
+    f_Sigma <- K_space_time - K_space_time%*%solve(f_Sigma, K_space_time)
+
+    f_save[i,] <- rmvnorm(1, f_Mu, f_Sigma)
+
+    sig2_save[i] <- 1/rgamma(1, sig2_a + N/2,
+                             sig2_b + 0.5*t(Y-f_save[i,])%*%(Y-f_save[i,]))
+
+    tau2_space_Sigma <- kronecker(K_space_inv, 1/tau2_time_save[i-1]*K_time_inv)
+
+    tau2_space_save[i] <- 1/rgamma(1, tau2_space_a + N/2,
+                                tau2_space_b + 0.5*t(f_save[i,])%*%tau2_space_Sigma%*%f_save[i,])
+
+    tau2_time_Sigma <- kronecker(1/tau2_space_save[i]*K_space_inv, K_time_inv)
+
+    tau2_time_save[i] <- 1/rgamma(1, tau2_time_a + N/2,
+                                  tau2_time_b + 0.5*t(f_save[i,])%*%tau2_time_Sigma%*%f_save[i,])
+  }
+
+  cbind(f_save, sig2_save, tau2_space_save, tau2_time_save)
+}
 ```
 
 ```{r}
 Y <- trip_counts$n_trips
 sdY <- sd(Y)
 meanY <- mean(Y)
-# x <- 1:length(Y)
-# Y2 <- scale(Y)
-# x2 <- x-mean(x)
-# X <- cbind(1, x2, x2^2)
-# N <- length(Y)
-# In <- diag(N)
-# burn <- 1000
-# niter <- 10000
-# 
-# no_cores <- 3
-# cl <- makeCluster(no_cores)
-# registerDoParallel(cl)
-# 
-# mcmc_combs1 <- list(comb1 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits1,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales1),
-#                    comb2 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits2,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales1),
-#                    comb3 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits3,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales1))
-# 
-# mcmc_combs2 <- list(comb1 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits1,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales1),
-#                     comb2 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits1,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales2),
-#                     comb3 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits1,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales3),
-#                     comb4 = list(x = x, Y = Y, niter = niter,
-#                                 parm_inits = parm_inits1,
-#                                 prior_parms = prior_parms,
-#                                 mh_parms = mh_parms,
-#                                 length_scales = length_scales4))
-# 
-# clusterExport(cl, list("gp.temp", "gp.temp.cluster", "exp.kernel", 
-#                        "period.kernel", "kernel", "mcmc_combs1",
-#                        "mcmc_combs2"))
-# clusterEvalQ(cl, library("progress"))
+x <- 1:length(Y)
+Y2 <- scale(Y)
+x2 <- x-mean(x)
+X <- cbind(1, x2, x2^2)
+N <- length(Y)
+In <- diag(N)
+burn <- 1000
+niter <- 10000
 
-# cluster_out1 <- parLapply(cl, mcmc_combs1, gp.temp.cluster)
-# cluster_out2 <- parLapply(cl, mcmc_combs2, gp.temp.cluster)
+parm_inits1 <- list(beta = c(0, 0, 0),
+                    sig2 = 0.5,
+                    tau21 = 5,
+                    tau22 = 5,
+                    f1 = rep(0, N),
+                    f2 = rep(0, N))
+
+parm_inits2 <- list(beta = c(10, -10, 0),
+                    sig2 = 5,
+                    tau21 = 1,
+                    tau22 = 1,
+                    f1 = rep(0, N),
+                    f2 = rep(0, N))
+
+parm_inits3 <- list(beta = c(0, 10, -10),
+                    sig2 = 1,
+                    tau21 = 10,
+                    tau22 = 1,
+                    f1 = rep(0, N),
+                    f2 = rep(0, N))
+
+prior_parms <- list(sig2a = 3, sig2b = 5, tau21a = 3, tau21b = 5,
+                    tau22a = 1.5, tau22b = 0.2)
+
+mh_parms <- list(tau22_sd = 1)
+
+length_scales1 <- list(l21 = (N+0.25)/52, l22 = (N+0.25)/52)
+length_scales2 <- list(l21 = (N+0.25)/12, l22 = (N+0.25)/52)
+length_scales3 <- list(l21 = (N+0.25)/52, l22 = (N+0.25)/12)
+length_scales4 <- list(l21 = (N+0.25)/12, l22 = (N+0.25)/12)
+
+no_cores <- 4
+cl <- makeCluster(no_cores)
+registerDoParallel(cl)
+
+mcmc_combs1 <- list(comb1 = list(x = x, Y = Y, niter = niter,
+                                parm_inits = parm_inits1,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales1),
+                   comb2 = list(x = x, Y = Y, niter = niter,
+                                parm_inits = parm_inits2,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales1),
+                   comb3 = list(x = x, Y = Y, niter = niter,
+                                parm_inits = parm_inits3,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales1))
+
+mcmc_combs2 <- list(comb1 = list(x = x, Y = Y, niter = 2000,
+                                parm_inits = parm_inits1,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales1),
+                    comb2 = list(x = x, Y = Y, niter = 2000,
+                                parm_inits = parm_inits1,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales2),
+                    comb3 = list(x = x, Y = Y, niter = 2000,
+                                parm_inits = parm_inits1,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales3),
+                    comb4 = list(x = x, Y = Y, niter = 2000,
+                                parm_inits = parm_inits1,
+                                prior_parms = prior_parms,
+                                mh_parms = mh_parms,
+                                length_scales = length_scales4))
+
+clusterExport(cl, list("gp.temp", "gp.temp.cluster", "exp.kernel",
+                       "period.kernel", "kernel", "mcmc_combs1",
+                       "mcmc_combs2"))
+clusterEvalQ(cl, list(library("progress"),library("mvtnorm")))
+
+cluster_out1 <- parLapply(cl, mcmc_combs1, gp.temp.cluster)
+cluster_out2 <- parLapply(cl, mcmc_combs2, gp.temp.cluster)
 ```
 
 ```{r}
@@ -345,16 +354,16 @@ samps13 <- cluster_out1$comb3$samples
 all_samps1 <- rbind(samps11[burn:niter,],
                     samps12[burn:niter,],
                     samps13[burn:niter,])
-# 
-# samps21 <- cluster_out2$comb1$samples
-# samps22 <- cluster_out2$comb2$samples
-# samps23 <- cluster_out2$comb3$samples
-# samps24 <- cluster_out2$comb4$samples
-# all_samps2 <- rbind(samps21[burn:niter,], 
-#                     samps22[burn:niter,], 
-#                     samps23[burn:niter,],
-#                     samps24[burn:niter,])
-# 
+
+samps21 <- cluster_out2$comb1$samples
+samps22 <- cluster_out2$comb2$samples
+samps23 <- cluster_out2$comb3$samples
+samps24 <- cluster_out2$comb4$samples
+all_samps2 <- rbind(samps21[200:2000,],
+                    samps22[200:2000,],
+                    samps23[200:2000,],
+                    samps24[200:2000,])
+
 mcmc_samps11 <- as.mcmc(samps11)
 mcmc_samps12 <- as.mcmc(samps12)
 mcmc_samps13 <- as.mcmc(samps13)
@@ -365,59 +374,46 @@ mcmc_samps_list <- mcmc.list(mcmc_samps11,
 
 gelman_diag <- gelman.diag(mcmc_samps_list)
 
-kable(gelman_diag$psrf, format = "latex", digits = 4)
+kable(gelman_diag$psrf[(2*N+1):(2*N+1+5),], 
+      format = "latex", digits = 4)
 
 ess <- effectiveSize(mcmc_samps_list)
 
-kable(ess, format = "latex", digits = 4)
+kable(ess[(2*N+1):(2*N+1+5)], format = "latex", digits = 4)
 
-png(file = "Plots/traceplots.png", width = 500, height = 600)
+png(file = "Plots/traceplots.png", width = 600, height = 800)
 par(mfrow = c(6, 1), mar = c(5, 5, 1, 1))
-coda::traceplot(as.mcmc(all_samps1))
+coda::traceplot(as.mcmc(all_samps1[,(2*N+1):(2*N+1+5)]))
 par(mfrow = c(1, 1))
 dev.off()
 
-# post_mean1 <- colMeans(samps21[burn:niter,])
-# post_mean2 <- colMeans(samps22[burn:niter,])
-# post_mean3 <- colMeans(samps23[burn:niter,])
-# post_mean4 <- colMeans(samps24[burn:niter,])
-# post_means <- cbind(post_mean1, post_mean2,
-#                     post_mean3, post_mean4)
+post_mean1 <- colMeans(samps21[200:2000,])
+post_mean2 <- colMeans(samps22[200:2000,])
+post_mean3 <- colMeans(samps23[200:2000,])
+post_mean4 <- colMeans(samps24[200:2000,])
+post_means <- cbind(post_mean1, post_mean2,
+                    post_mean3, post_mean4)
 
-# colnames(post_means) <- c("l21=7, l22=7",
-#                           "l21=30, l22=7",
-#                           "l21=7, l22=30",
-#                           "l21=30, l22=30")
+colnames(post_means) <- c("l21=7, l22=7",
+                          "l21=30, l22=7",
+                          "l21=7, l22=30",
+                          "l21=30, l22=30")
 
 kable(post_means, format = "latex", digits = 6)
 
-# Xb_post <- matrix(0, nrow(all_samps1), length(Y))
-# f1_post <- matrix(0, nrow(all_samps1), length(Y))
-# f2_post <- matrix(0, nrow(all_samps1), length(Y))
-# Y_pred <- matrix(0, nrow(all_samps1), length(Y))
-# max_gap_Y <- rep(0, nrow(all_samps1))
-# max_gap_Y_pred <- rep(0, nrow(all_samps1))
-# 
-# for (i in 1:nrow(all_samps1)){
-#   b <- cbind(all_samps1[i,1:3])
-#   Xb_post[i,] <- X%*%b
-#   K1 <- exp.kernel(x2, all_samps1[i,5], 7)
-#   K2 <- period.kernel(x2, all_samps1[i,6], 7)
-#   Sigma <- K1+K2+all_samps1[i,4]*In
-#   Wres <- chol2inv(chol(Sigma))%*%(Y2-Xb_post[i,])
-#   f1_post[i,] <- K1%*%Wres
-#   f2_post[i,] <- K2%*%Wres
-#   Mu_new <- Xb_post[i,] - f1_post[i,] - f2_post[i,]
-#   res_new <- Y2-Mu_new
-#   sig2_new <- 1/rgamma(1, prior_parms[["sig2a"]] + N/2,
-#                        prior_parms[["sig2b"]] + 
-#                          0.5*t(res_new)%*%(res_new))
-#   Y_pred[i,] <- rmvnorm(1, Xb_post[i,] + 
-#                       f1_post[i,] + 
-#                       f2_post[i,], sig2_new*In)
-#   max_gap_Y[i] <- max(Y2-Mu_new)
-#   max_gap_Y_pred[i] <- max(Y_pred[i,]-Mu_new)
-# }
+Xb_post <- matrix(0, nrow(all_samps1), length(Y))
+Y_pred <- matrix(0, nrow(all_samps1), length(Y))
+max_gap_Y <- rep(0, nrow(all_samps1))
+max_gap_Y_pred <- rep(0, nrow(all_samps1))
+
+for (i in 1:nrow(all_samps1)){
+  b <- cbind(all_samps1[i,(2*N+1):(2*N+1+2)])
+  Xb_post[i,] <- X%*%b
+  theta <- Xb_post[i,] + all_samps1[i,1:N] + all_samps1[i,(N+1):(2*N)]
+  Y_pred[i,] <- rmvnorm(1, theta, all_samps1[i,(2*N+1+3)]*In)
+  max_gap_Y[i] <- max(Y2-theta)
+  max_gap_Y_pred[i] <- max(Y_pred[i,]-theta)
+}
 
 png(file = "Plots/post_pred_check.png",
     width = 500,
@@ -430,10 +426,11 @@ plot(max_gap_Y_pred, max_gap_Y,
 abline(a=0, b=1, col = 'red', lwd = 2)
 dev.off()
 
-# post_mean_pred <- colMeans(Xb_post + f1_post + f2_post)*sdY + meanY
-# Xb_pred <- colMeans(Xb_post)*sdY + meanY
-# f1_pred <- colMeans(f1_post)*sdY
-# f2_pred <- colMeans(f2_post)*sdY
+post_mean_pred <- colMeans(Xb_post + all_samps1[,1:N] + 
+                             all_samps1[,(N+1):(2*N)])*sdY + meanY
+Xb_pred <- colMeans(Xb_post)*sdY + meanY
+f1_pred <- colMeans(all_samps1[,1:N])*sdY
+f2_pred <- colMeans(all_samps1[,(N+1):(2*N)])*sdY
 
 png(file = "Plots/predictions.png",
     height = 500,
@@ -475,56 +472,56 @@ dev.off()
 ```{r}
 Y <- trip_data[,3]
 Y2 <- log(trip_data[,3]+1)
-# tt <- unique(trip_data[,2])
-# 
+tt <- unique(trip_data[,2])
+
 Y2mean <- mean(Y2)
 Y2sd <- sd(Y2)
 Y2 <- (Y2-Y2mean)/Y2sd
-# 
-# lat_long <- unique(trip_data[,4:5])
-# rownames(lat_long) <- NULL
-# 
-# N <- length(tt)*nrow(lat_long)
-# In <- diag(N)
-# 
-# burn <- 1000
-# niter <- 10000
-# 
-# mcmc_combs1 <- list(data = trip_data, niter = niter,
-#                     l2_space = 0.005, l2_time = 12, prior_a = 3,
-#                     prior_b = 5, var_init = 2)
-# mcmc_combs2 <- list(data = trip_data, niter = niter,
-#                     l2_space = 0.005, l2_time = 12, prior_a = 3,
-#                     prior_b = 5, var_init = 10)
-# mcmc_combs3 <- list(data = trip_data, niter = niter,
-#                     l2_space = 0.005, l2_time = 12, prior_a = 3,
-#                     prior_b = 5, var_init = 100)
-# 
-# mcmc_combs <- list(comb1 = mcmc_combs1,
-#                    comb2 = mcmc_combs2,
-#                    comb3 = mcmc_combs3)
-# 
-# no_cores <- 3
-# cl <- makeCluster(no_cores)
-# registerDoParallel(cl)
-# 
-# clusterExport(cl, list("gau.pro.spat.temp", 
-#                        "space.kern", "space.D", "time.kern",
-#                        "time.D", "mcmc_combs"))
-# clusterEvalQ(cl, library(mvtnorm))
-# 
-# spat_temp_out <- parLapply(cl, mcmc_combs, function(x){
-#   data <- x[["data"]]
-#   niter <- x[["niter"]]
-#   l2_space <- x[["l2_space"]]
-#   l2_time <- x[["l2_time"]]
-#   prior_a <- x[["prior_a"]]
-#   prior_b <- x[["prior_b"]]
-#   var_init <- x[["var_init"]]
-# 
-#   gau.pro.spat.temp(data, niter, l2_space, l2_time,
-#                     prior_a, prior_b, var_init)
-# })
+
+lat_long <- unique(trip_data[,4:5])
+rownames(lat_long) <- NULL
+
+N <- length(tt)*nrow(lat_long)
+In <- diag(N)
+
+burn <- 1000
+niter <- 10000
+
+mcmc_combs1 <- list(data = trip_data, niter = niter,
+                    l2_space = 0.005, l2_time = 12, prior_a = 3,
+                    prior_b = 5, var_init = 2)
+mcmc_combs2 <- list(data = trip_data, niter = niter,
+                    l2_space = 0.005, l2_time = 12, prior_a = 3,
+                    prior_b = 5, var_init = 10)
+mcmc_combs3 <- list(data = trip_data, niter = niter,
+                    l2_space = 0.005, l2_time = 12, prior_a = 3,
+                    prior_b = 5, var_init = 100)
+
+mcmc_combs <- list(comb1 = mcmc_combs1,
+                   comb2 = mcmc_combs2,
+                   comb3 = mcmc_combs3)
+
+no_cores <- 3
+cl <- makeCluster(no_cores)
+registerDoParallel(cl)
+
+clusterExport(cl, list("gau.pro.spat.temp",
+                       "space.kern", "space.D", "time.kern",
+                       "time.D", "mcmc_combs"))
+clusterEvalQ(cl, library(mvtnorm))
+
+spat_temp_out <- parLapply(cl, mcmc_combs, function(x){
+  data <- x[["data"]]
+  niter <- x[["niter"]]
+  l2_space <- x[["l2_space"]]
+  l2_time <- x[["l2_time"]]
+  prior_a <- x[["prior_a"]]
+  prior_b <- x[["prior_b"]]
+  var_init <- x[["var_init"]]
+
+  gau.pro.spat.temp(data, niter, l2_space, l2_time,
+                    prior_a, prior_b, var_init)
+})
 ```
 
 ```{r}
@@ -557,21 +554,21 @@ coda::traceplot(as.mcmc(all_samps[,(N+1):(N+3)]))
 par(mfrow = c(1, 1))
 dev.off()
 
-# post_pred <- matrix(0, nrow(all_samps), N)
-# post_Mu <- exp(colMeans(all_samps[,1:N]*Y2sd + Y2mean))
-# 
-# for (i in 1:nrow(all_samps)){
-#   curf <- all_samps[i,1:N]
-#   post_pred[i,] <- t(rmvnorm(1, curf, all_samps[i,N+1]*In))
-# }
-# 
-# post_Y_var <- rep(0, nrow(all_samps))
-# post_Y_pred_var <- rep(0, nrow(all_samps))
-# 
-# for (i in 1:nrow(all_samps)){
-#   post_Y_var[i] <- mean((Y2-all_samps[i,1:N])^2)
-#   post_Y_pred_var[i] <- mean((post_pred[i,] - all_samps[i,1:N])^2)
-# }
+post_pred <- matrix(0, nrow(all_samps), N)
+post_Mu <- exp(colMeans(all_samps[,1:N]*Y2sd + Y2mean))
+
+for (i in 1:nrow(all_samps)){
+  curf <- all_samps[i,1:N]
+  post_pred[i,] <- t(rmvnorm(1, curf, all_samps[i,N+1]*In))
+}
+
+post_Y_var <- rep(0, nrow(all_samps))
+post_Y_pred_var <- rep(0, nrow(all_samps))
+
+for (i in 1:nrow(all_samps)){
+  post_Y_var[i] <- mean((Y2-all_samps[i,1:N])^2)
+  post_Y_pred_var[i] <- mean((post_pred[i,] - all_samps[i,1:N])^2)
+}
 
 png(file = "Plots/st_post_pred_check.png",
     width = 500,
@@ -585,7 +582,7 @@ plot(post_Y_pred_var, post_Y_var,
 abline(a=0, b=1, col = 'red', lwd = 2)
 dev.off()
 
-# trip_data$Predictions <- post_Mu
+trip_data$Predictions <- post_Mu
 
 png(file = "Plots/st_predictions.png",
     height = 600,
