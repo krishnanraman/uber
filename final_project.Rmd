@@ -399,7 +399,7 @@ colnames(post_means) <- c("l21=7, l22=7",
                           "l21=7, l22=30",
                           "l21=30, l22=30")
 
-kable(post_means, format = "latex", digits = 6)
+kable(post_means[(2*N+1):(2*N+1+5),], format = "latex", digits = 6)
 
 Xb_post <- matrix(0, nrow(all_samps1), length(Y))
 Y_pred <- matrix(0, nrow(all_samps1), length(Y))
